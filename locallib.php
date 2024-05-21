@@ -59,6 +59,11 @@ class local_stream_help {
     public const PLATFORM_UNICKO = 3;
 
     /**
+     * Constant representing the queue status of a meeting.
+     */
+    public const MEETING_STATUS_QUEUE = 0;
+
+    /**
      * Constant representing the process status of a meeting.
      */
     public const MEETING_STATUS_PROCESS = 1;

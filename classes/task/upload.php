@@ -59,7 +59,8 @@ class upload extends \core\task\scheduled_task {
         global $DB, $CFG;
 
         $task = new \local_stream\task\notifications();
-        $meetings = $DB->get_records_list('local_stream_rec', 'status', [$help::MEETING_STATUS_PROCESS]);
+        $meetings =
+                $DB->get_records_list('local_stream_rec', 'status', [$help::MEETING_STATUS_PROCESS, $help::MEETING_STATUS_QUEUE]);
         if (!$meetings) {
             mtrace('Task: No meetings were found.');
             return true;
