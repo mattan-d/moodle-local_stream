@@ -1347,7 +1347,7 @@ class local_stream_help {
         $newrecording->embedded = 0;
         $newrecording->visible = ($this->config->hidefromstudents ? 0 : 1);
         $newrecording->recordingdata =
-                json_encode(['fileid' => $data->id, 'file_size' => $data->size, 'play_url' => $data->webUrl]));
+                json_encode(['fileid' => $data->id, 'file_size' => $data->size, 'play_url' => $data->webUrl]);
         $newrecording->starttime = $start;
         $newrecording->fileid = $data->id;
 
