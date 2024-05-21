@@ -216,17 +216,6 @@ class local_stream_embed_form extends moodleform {
         $mform->addGroup($buttonarray, 'buttonar', '', [' '], false);
         $mform->closeHeaderBefore('buttonar');
     }
-
-    /**
-     *
-     * Sets the default values for the form elements based on the block configuration.
-     *
-     * @param object $defaults The default values object.
-     * @return void
-     */
-    public function set_data($defaults) {
-        parent::set_data($defaults);
-    }
 }
 
 /**
