@@ -31,7 +31,7 @@ $capabilities = [
                 'archetypes' => [
                         'user' => CAP_ALLOW,
                         'editingteacher' => CAP_ALLOW,
-                        'teacher' => CAP_ALLOW
+                        'teacher' => CAP_ALLOW,
                 ],
         ],
         'local/stream:view' => [

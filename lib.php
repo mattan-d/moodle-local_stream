@@ -208,7 +208,7 @@ class local_stream_embed_form extends moodleform {
         $mform->addElement('autocomplete', 'course', get_string('course'), $courses, $options);
 
         $buttonarray = [];
-        $classarray = ['class' => 'form-submit',];
+        $classarray = ['class' => 'form-submit'];
 
         $buttonarray[] = &$mform->createElement('submit', 'saveandreturn', get_string('savechangesandreturn'), $classarray);
         $buttonarray[] = &$mform->createElement('submit', 'saveanddisplay', get_string('savechangesanddisplay'), $classarray);

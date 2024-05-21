@@ -115,7 +115,7 @@ class local_stream_help {
     public function get_meeting($data) {
         global $DB;
 
-        $meeting = $DB->get_record('local_stream_rec', ['id' => $data->id,]);
+        $meeting = $DB->get_record('local_stream_rec', ['id' => $data->id]);
         if ($meeting) {
             if ($meeting->streamid > 0) {
                 return new moodle_url($this->config->streamurl . '/watch/' . $meeting->streamid);
@@ -388,7 +388,7 @@ class local_stream_help {
             foreach ($recordingsinstances->recording_files as $recording) {
 
                 if ($exists = $DB->get_record('local_stream_rec',
-                        ['meetingid' => $meeting->id, 'recordingid' => $recording->id,])) {
+                        ['meetingid' => $meeting->id, 'recordingid' => $recording->id])) {
 
                     mtrace('Task: Skipping recording #' . $recording->id . ' was previously saved and exists in the db.');
                     continue;
@@ -463,7 +463,7 @@ class local_stream_help {
             $meeting->meetingId = end($meeting->explode);
 
             if ($exists = $DB->get_record('local_stream_rec',
-                    ['meetingid' => $meeting->meetingId, 'recordingid' => $meeting->id,])) {
+                    ['meetingid' => $meeting->meetingId, 'recordingid' => $meeting->id])) {
 
                 mtrace('Task: Skipping recording #' . $meeting->id . ' was previously saved and exists in the db.');
                 continue;
@@ -533,7 +533,7 @@ class local_stream_help {
             $i++;
 
             if ($exists = $DB->get_record('local_stream_rec',
-                    ['meetingid' => $meeting->id, 'recordingid' => $meeting->meeting,])) {
+                    ['meetingid' => $meeting->id, 'recordingid' => $meeting->meeting])) {
 
                 mtrace('Task: Skipping recording #' . $meeting->id . ' was previously saved and exists in the db.');
                 continue;
@@ -865,8 +865,8 @@ class local_stream_help {
         }
 
         if (!isset($capability)) {
-            $teacher = $DB->get_record('role', ['shortname' => 'teacher',]);
-            $editingteacher = $DB->get_record('role', ['shortname' => 'editingteacher',]);
+            $teacher = $DB->get_record('role', ['shortname' => 'teacher']);
+            $editingteacher = $DB->get_record('role', ['shortname' => 'editingteacher']);
 
             $capability = false;
             if (user_has_role_assignment($USER->id, $teacher->id) || user_has_role_assignment($USER->id, $editingteacher->id) ||
