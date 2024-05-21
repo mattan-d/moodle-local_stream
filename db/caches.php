@@ -24,8 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$definitions = array(
-        'streamdata' => array(
-                'mode' => cache_store::MODE_APPLICATION
-        )
-);
+$definitions = [
+        'streamdata' => [
+                'mode' => cache_store::MODE_APPLICATION,
+        ],
+];

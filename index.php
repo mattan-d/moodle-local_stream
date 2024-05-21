@@ -119,7 +119,7 @@ if (($search = $form->get_data()) && confirm_sesskey()) {
 
 $perpage = $help->config->recordingsperpage;
 if (!is_siteadmin($USER)) {
-    $user = $DB->get_record('user', array('id' => $USER->id));
+    $user = $DB->get_record('user', ['id' => $USER->id]);
     if ($user) {
         $basefilter['email'] = $user->email;
         $data = $help->get_meetings($basefilter, false, $page);
@@ -142,7 +142,7 @@ if (isset($SESSION->meetings_filtering) || isset($courseid)) {
 $table = new html_table();
 if ($help->has_capability_to_edit()) {
     $table->head =
-            array('#', get_string('status'), get_string('course', 'local_stream'),
+            ['#', get_string('status'), get_string('course', 'local_stream'),
                     get_string('meeting', 'local_stream'),
                     get_string('starttime', 'local_stream'),
                     get_string('topic', 'local_stream'),
@@ -152,26 +152,28 @@ if ($help->has_capability_to_edit()) {
                     get_string('participants', 'local_stream'),
                     get_string('views', 'local_stream'),
                     get_string('visible'),
-                    get_string('options'));
+                    get_string('options'),
+            ];
 } else {
     $table->head =
-            array('#', get_string('status'), get_string('course', 'local_stream'),
+            ['#', get_string('status'), get_string('course', 'local_stream'),
                     get_string('meeting', 'local_stream'),
                     get_string('starttime', 'local_stream'),
                     get_string('topic', 'local_stream'),
                     get_string('duration', 'local_stream'),
-                    get_string('options'));
+                    get_string('options'),
+            ];
 }
 
 $icons = [
         'progressbar' => new pix_icon('i/progressbar', get_string('progress', 'local_stream')),
-        'preview' => new pix_icon('t/preview', get_string('preview'), 'moodle', array('class' => 'mr-2')),
-        'hide' => new pix_icon('t/hide', get_string('hide'), 'moodle', array('class' => 'mr-2')),
-        'show' => new pix_icon('t/show', get_string('show'), 'moodle', array('class' => 'mr-2')),
-        'course' => new pix_icon('i/course', get_string('course'), 'moodle', array('class' => 'mr-2')),
-        'delete' => new pix_icon('t/delete', get_string('delete'), 'moodle', array('class' => 'mr-2')),
-        'restore' => new pix_icon('t/restore', get_string('restore'), 'moodle', array('class' => 'mr-2')),
-        'download' => new pix_icon('t/download', get_string('download'), 'moodle', array('class' => 'mr-2')),
+        'preview' => new pix_icon('t/preview', get_string('preview'), 'moodle', ['class' => 'mr-2']),
+        'hide' => new pix_icon('t/hide', get_string('hide'), 'moodle', ['class' => 'mr-2']),
+        'show' => new pix_icon('t/show', get_string('show'), 'moodle', ['class' => 'mr-2']),
+        'course' => new pix_icon('i/course', get_string('course'), 'moodle', ['class' => 'mr-2']),
+        'delete' => new pix_icon('t/delete', get_string('delete'), 'moodle', ['class' => 'mr-2']),
+        'restore' => new pix_icon('t/restore', get_string('restore'), 'moodle', ['class' => 'mr-2']),
+        'download' => new pix_icon('t/download', get_string('download'), 'moodle', ['class' => 'mr-2']),
         'warning' => new pix_icon('i/warning', get_string('warning')),
         'invalid' => new pix_icon('i/invalid', get_string('invalid', 'local_stream')),
         'valid' => new pix_icon('i/valid', get_string('valid', 'local_stream')),
@@ -193,7 +195,7 @@ foreach ($data as $row) {
     if ($recordingurl) {
         $icon = $icons['preview'];
         $buttons .= $OUTPUT->action_icon($recordingurl, $icon, null,
-                array('class' => $menuitemclass . ' preview-mode'), true);
+                ['class' => $menuitemclass . ' preview-mode'], true);
     }
 
     // Visible button.
@@ -205,61 +207,62 @@ foreach ($data as $row) {
         $row['visible'] = 1;
     }
     $visiblebtn = $OUTPUT->action_icon(new moodle_url('/local/stream/index.php',
-            array('action' => 'hide', 'id' => $row['id'], 'visible' => $row['visible'])), $icon,
+            ['action' => 'hide', 'id' => $row['id'], 'visible' => $row['visible']]), $icon,
             new confirm_action(get_string('areyousure', 'local_stream')));
 
     if ($help->has_capability_to_edit()) {
         $icon = $icons['course'];
         $buttons .= $OUTPUT->action_icon(new moodle_url('/local/stream/embed.php',
-                array('id' => $row['id'])),
+                ['id' => $row['id']]),
                 $icon, null,
-                array('class' => $menuitemclass), true);
+                ['class' => $menuitemclass], true);
 
         $icon = $icons['delete'];
         $buttons .= $OUTPUT->action_icon(new moodle_url('/local/stream/index.php',
-                array('action' => 'delete', 'id' => $row['id'])),
+                ['action' => 'delete', 'id' => $row['id']]),
                 $icon,
                 new confirm_action(get_string('areyousure', 'local_stream')),
-                array('class' => $menuitemclass), true);
+                ['class' => $menuitemclass], true);
 
         if (isset($row['meetingdata'])) {
             $icon = $icons['restore'];
             $buttons .= $OUTPUT->action_icon(new moodle_url('/local/stream/index.php',
-                    array('action' => 'recover', 'id' => $row['id'])), $icon,
+                    ['action' => 'recover', 'id' => $row['id']]), $icon,
                     new confirm_action(get_string('areyousure', 'local_stream')),
-                    array('class' => $menuitemclass), true);
+                    ['class' => $menuitemclass], true);
         }
 
         $icon = $icons['download'];
         $buttons .= $OUTPUT->action_icon(new moodle_url('/local/stream/index.php',
-                array('action' => 'download', 'id' => $row['id'])), $icon, null,
-                array('class' => $menuitemclass), true);
+                ['action' => 'download', 'id' => $row['id']]), $icon, null,
+                ['class' => $menuitemclass], true);
     }
 
     $coursepage = '-';
     if ($row['course']) {
-        $course = $DB->get_record('course', array('id' => $row['course']));
+        $course = $DB->get_record('course', ['id' => $row['course']]);
         if ($course) {
-            $coursepage = html_writer::link(new moodle_url('/course/view.php', array('id' => $row['course'])),
+            $coursepage = html_writer::link(new moodle_url('/course/view.php', ['id' => $row['course']]),
                     $course->fullname);
         }
     }
 
     if ($row['status'] == $help::MEETING_STATUS_INVALID) {
-        $statusicon = $OUTPUT->action_icon(new moodle_url('/local/stream/meeting.php',
-                array('id' => $row['id'], 'sesskey' => sesskey())), $icons['warning']);
+        $statusicon =
+                $OUTPUT->action_icon(new moodle_url('/local/stream/meeting.php', ['id' => $row['id'], 'sesskey' => sesskey()]),
+                        $icons['warning']);
     } else if ($row['status'] == $help::MEETING_STATUS_DELETED) {
         $statusicon = $OUTPUT->action_icon(new moodle_url('/local/stream/meeting.php',
-                array('id' => $row['id'], 'sesskey' => sesskey())), $icons['risk_dataloss']);
+                ['id' => $row['id'], 'sesskey' => sesskey()]), $icons['risk_dataloss']);
     } else if ($row['status'] == $help::MEETING_STATUS_READY) {
         $statusicon = $OUTPUT->action_icon(new moodle_url('/local/stream/meeting.php',
-                array('id' => $row['id'], 'sesskey' => sesskey())), $icons['valid']);
+                ['id' => $row['id'], 'sesskey' => sesskey()]), $icons['valid']);
     } else if ($row['status'] == $help::MEETING_STATUS_PROCESS) {
         $statusicon = $OUTPUT->action_icon(new moodle_url('/local/stream/meeting.php',
-                array('id' => $row['id'], 'sesskey' => sesskey())), $icons['progressbar']);
+                ['id' => $row['id'], 'sesskey' => sesskey()]), $icons['progressbar']);
     } else {
         $statusicon = $OUTPUT->action_icon(new moodle_url('/local/stream/meeting.php',
-                array('id' => $row['id'], 'sesskey' => sesskey())), $icons['invalid']);
+                ['id' => $row['id'], 'sesskey' => sesskey()]), $icons['invalid']);
     }
 
     $buttons = '<div class="btn-group" role="group">' .
@@ -273,12 +276,12 @@ foreach ($data as $row) {
 
     // Reference to zoom report.
     if ($row['participants']) {
-        $zoom = $DB->get_record('zoom', array('meeting_id' => $row['meetingid']));
+        $zoom = $DB->get_record('zoom', ['meeting_id' => $row['meetingid']]);
         if ($zoom) {
             $cm = get_coursemodule_from_instance('zoom', $zoom->id);
             if ($cm) {
                 $row['participants'] = html_writer::link(new moodle_url('/mod/zoom/participants.php',
-                        array('id' => $cm->id, 'uuid' => $meetingdata->uuid)),
+                        ['id' => $cm->id, 'uuid' => $meetingdata->uuid]),
                         $row['participants']);
             }
         }
@@ -302,16 +305,16 @@ foreach ($data as $row) {
     $usersaccount = $DB->get_record('user', ['email' => $row['email']]);
     if ($usersaccount) {
         $row['email'] =
-                html_writer::link(new moodle_url('/user/profile.php', array('id' => $usersaccount->id)),
+                html_writer::link(new moodle_url('/user/profile.php', ['id' => $usersaccount->id]),
                         fullname($usersaccount));
     }
 
     if ($help->has_capability_to_edit()) {
-        $table->data[] = array(
+        $table->data[] = [
                 $row['id'],
                 $statusicon,
                 $coursepage,
-                html_writer::link(new moodle_url('meeting.php', array('id' => $row['id'], 'sesskey' => sesskey())),
+                html_writer::link(new moodle_url('meeting.php', ['id' => $row['id'], 'sesskey' => sesskey()]),
                         $row['meetingid']),
                 $row['starttime'],
                 $row['topic'],
@@ -321,10 +324,10 @@ foreach ($data as $row) {
                 $row['participants'],
                 $row['views'],
                 $visiblebtn,
-                $buttons
-        );
+                $buttons,
+        ];
     } else {
-        $table->data[] = array(
+        $table->data[] = [
                 $row['id'],
                 $statusicon,
                 $coursepage,
@@ -332,8 +335,8 @@ foreach ($data as $row) {
                 $row['starttime'],
                 $row['topic'],
                 $row['duration'],
-                $buttons
-        );
+                $buttons,
+        ];
     }
 }
 

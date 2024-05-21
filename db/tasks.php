@@ -33,7 +33,7 @@ $tasks = [
                 'hour' => '*',
                 'day' => '*',
                 'month' => '*',
-                'dayofweek' => '*'
+                'dayofweek' => '*',
         ],
         [
                 'classname' => 'local_stream\task\upload',
@@ -42,7 +42,7 @@ $tasks = [
                 'hour' => '*',
                 'day' => '*',
                 'month' => '*',
-                'dayofweek' => '*'
+                'dayofweek' => '*',
         ],
         [
                 'classname' => 'local_stream\task\embed',
@@ -51,7 +51,7 @@ $tasks = [
                 'hour' => '*',
                 'day' => '*',
                 'month' => '*',
-                'dayofweek' => '*'
+                'dayofweek' => '*',
         ],
         [
                 'classname' => 'local_stream\task\delete',
@@ -60,7 +60,7 @@ $tasks = [
                 'hour' => '*/6',
                 'day' => '*',
                 'month' => '*',
-                'dayofweek' => '*'
+                'dayofweek' => '*',
         ],
         [
                 'classname' => 'local_stream\task\refresh_token',
@@ -69,6 +69,6 @@ $tasks = [
                 'hour' => '0',
                 'day' => '*/5',
                 'month' => '*',
-                'dayofweek' => '*'
+                'dayofweek' => '*',
         ]
 ];

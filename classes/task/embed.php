@@ -59,7 +59,7 @@ class embed extends \core\task\scheduled_task {
         $help = new \local_stream_help();
         $task = new \local_stream\task\notifications();
         $meetings =
-                $DB->get_records('local_stream_rec', array('embedded' => 0, 'status' => $help::MEETING_STATUS_READY),
+                $DB->get_records('local_stream_rec', ['embedded' => 0, 'status' => $help::MEETING_STATUS_READY],
                         'timecreated DESC', '*', '0',
                         '100');
 
@@ -69,10 +69,10 @@ class embed extends \core\task\scheduled_task {
         }
 
         if ($help->config->platform == $help::PLATFORM_ZOOM) {
-            $module = $DB->get_record('modules', array('name' => 'zoom'));
+            $module = $DB->get_record('modules', ['name' => 'zoom']);
 
         } else if ($help->config->platform == $help::PLATFORM_TEAMS) {
-            $module = $DB->get_record('modules', array('name' => 'msteams'));
+            $module = $DB->get_record('modules', ['name' => 'msteams']);
         }
 
         foreach ($meetings as $meeting) {
@@ -132,17 +132,17 @@ class embed extends \core\task\scheduled_task {
                 if ($page = $help->add_module($meeting)) {
 
                     $source = $DB->get_record('course_modules',
-                            array('course' => $platform->course, 'instance' => $page->id));
+                            ['course' => $platform->course, 'instance' => $page->id]);
                     $destination = $DB->get_record('course_modules',
-                            array('course' => $platform->course, 'module' => $module->id, 'instance' => $platform->id));
+                            ['course' => $platform->course, 'module' => $module->id, 'instance' => $platform->id]);
 
                     $section = $DB->get_record('course_sections',
-                            array('course' => $platform->course, 'id' => $destination->section));
+                            ['course' => $platform->course, 'id' => $destination->section]);
 
                     // Hack for TEAMS.
                     if (isset($details['sectionname']) && $details['sectionname']) {
                         $section = $DB->get_record('course_sections',
-                                array('course' => $platform->course, 'name' => $details['sectionname']));
+                                ['course' => $platform->course, 'name' => $details['sectionname']]);
 
                         if ($section) {
                             moveto_module($source, $section);

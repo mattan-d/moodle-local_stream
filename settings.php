@@ -35,12 +35,12 @@ if ($hassiteconfig) {
 
     $settings = new admin_settingpage('local_stream_settings', new lang_string('settingspage', 'local_stream'));
     $settings->add(new admin_setting_heading('settingspage', get_string('settingspage', 'local_stream'), ''));
-    $options = array(
+    $options = [
             $help::PLATFORM_ZOOM => get_string('zoom', 'local_stream'),
             $help::PLATFORM_WEBEX => get_string('webex', 'local_stream'),
             $help::PLATFORM_TEAMS => get_string('teams', 'local_stream'),
             $help::PLATFORM_UNICKO => get_string('unicko', 'local_stream'),
-    );
+    ];
 
     $settings->add(new admin_setting_configtext('local_stream/streamurl',
             get_string('streamurl', 'local_stream'), '', ''));
@@ -60,17 +60,17 @@ if ($hassiteconfig) {
                     $help::STORAGE_NODOWNLOAD => get_string('nodownload', 'local_stream'),
             ]));
 
-    $options = array(
-            10 => 10, 20 => 20, 30 => 30, 50 => 50, 100 => 100, 150 => 150
-    );
+    $options = [
+            10 => 10, 20 => 20, 30 => 30, 50 => 50, 100 => 100, 150 => 150,
+    ];
 
     $settings->add(new admin_setting_configselect('local_stream/recordingsperpage',
             get_string('recordingsperpage', 'local_stream'), '', 30, $options));
 
-    $options = array(
+    $options = [
             0 => get_string('today'), 1 => 1 . ' ' . get_string('days'), 3 => 3 . ' ' . get_string('days'),
-            7 => 7 . ' ' . get_string('days'), 14 => 14 . ' ' . get_string('days'), 31 => 31 . ' ' . get_string('days')
-    );
+            7 => 7 . ' ' . get_string('days'), 14 => 14 . ' ' . get_string('days'), 31 => 31 . ' ' . get_string('days'),
+    ];
 
     $settings->add(new admin_setting_configselect('local_stream/daystolisting',
             get_string('daystolisting', 'local_stream'), '', 0, $options));
@@ -148,9 +148,9 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_configcheckbox('local_stream/hidefromstudents',
             get_string('hidefromstudents'), '', ''));
 
-    $options = array(
-            0 => get_string('above', 'local_stream'), 1 => get_string('below', 'local_stream')
-    );
+    $options = [
+            0 => get_string('above', 'local_stream'), 1 => get_string('below', 'local_stream'),
+    ];
 
     $settings->add(new admin_setting_configselect('local_stream/embedorder',
             get_string('order'), get_string('order_desc', 'local_stream'), 0, $options));

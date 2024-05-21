@@ -115,7 +115,7 @@ class local_stream_help {
     public function get_meeting($data) {
         global $DB;
 
-        $meeting = $DB->get_record('local_stream_rec', array('id' => $data->id));
+        $meeting = $DB->get_record('local_stream_rec', ['id' => $data->id,]);
         if ($meeting) {
             if ($meeting->streamid > 0) {
                 return new moodle_url($this->config->streamurl . '/watch/' . $meeting->streamid);
@@ -156,17 +156,16 @@ class local_stream_help {
 
         $url = 'https://zoom.us/oauth/token?grant_type=account_credentials&account_id=' . $config->accountid;
 
-        $options = array(
+        $options = [
                 'RETURNTRANSFER' => true,
                 'CURLOPT_MAXREDIRS' => 10,
                 'CURLOPT_TIMEOUT' => 30,
+        ];
 
-        );
-
-        $header = array(
+        $header = [
                 'authorization: Basic ' . base64_encode($config->clientid . ':' . $config->clientsecret),
                 'Content-Type: application/json',
-        );
+        ];
 
         $curl = new \curl();
         $curl->setHeader($header);
@@ -204,23 +203,23 @@ class local_stream_help {
      * @return mixed Returns the decoded JSON response from the Zoom API.
      * @throws Exception If an error occurs during the API request.
      */
-    public function call_zoom_api($url, $jsondata = array(), $method = 'get', $getinfo = false, $debug = false) {
+    public function call_zoom_api($url, $jsondata = [], $method = 'get', $getinfo = false, $debug = false) {
 
         static $jwt;
         if (!isset($jwt)) {
             $jwt = $this->get_zoom_token();
         }
 
-        $options = array(
+        $options = [
                 'RETURNTRANSFER' => true,
                 'CURLOPT_MAXREDIRS' => 10,
-                'CURLOPT_TIMEOUT' => 30
-        );
+                'CURLOPT_TIMEOUT' => 30,
+        ];
 
-        $header = array(
+        $header = [
                 'authorization: Bearer ' . $jwt,
-                'Content-Type: application/json'
-        );
+                'Content-Type: application/json',
+        ];
 
         $curl = new \curl();
         $curl->setHeader($header);
@@ -251,23 +250,23 @@ class local_stream_help {
      *
      * @throws \Exception If the cURL request fails.
      */
-    public function call_webex_api($url, $jsondata = array(), $method = 'get', $getinfo = false) {
+    public function call_webex_api($url, $jsondata = [], $method = 'get', $getinfo = false) {
 
         static $jwt;
         if (!isset($jwt)) {
             $jwt = $this->get_webex_token();
         }
 
-        $options = array(
+        $options = [
                 'RETURNTRANSFER' => true,
                 'CURLOPT_MAXREDIRS' => 10,
-                'CURLOPT_TIMEOUT' => 30
-        );
+                'CURLOPT_TIMEOUT' => 30,
+        ];
 
-        $header = array(
+        $header = [
                 'authorization: Bearer ' . $jwt,
-                'Content-Type: application/json'
-        );
+                'Content-Type: application/json',
+        ];
 
         $curl = new \curl();
         $curl->setHeader($header);
@@ -301,18 +300,18 @@ class local_stream_help {
      * @param bool $getinfo Whether to return cURL info (default false).
      * @return mixed The API response or cURL info, depending on $getinfo.
      */
-    public function call_unicko_api($path, $jsondata = array(), $method = 'get', $getinfo = false) {
+    public function call_unicko_api($path, $jsondata = [], $method = 'get', $getinfo = false) {
 
-        $options = array(
+        $options = [
                 'RETURNTRANSFER' => true,
                 'CURLOPT_MAXREDIRS' => 10,
                 'CURLOPT_TIMEOUT' => 30,
-        );
+        ];
 
-        $header = array(
+        $header = [
                 'authorization: Basic ' . base64_encode($this->config->unickokey . ':' . $this->config->unickosecret),
                 'Content-Type: application/json',
-        );
+        ];
 
         $curl = new \curl();
         $curl->setHeader($header);
@@ -389,7 +388,7 @@ class local_stream_help {
             foreach ($recordingsinstances->recording_files as $recording) {
 
                 if ($exists = $DB->get_record('local_stream_rec',
-                        array('meetingid' => $meeting->id, 'recordingid' => $recording->id))) {
+                        ['meetingid' => $meeting->id, 'recordingid' => $recording->id,])) {
 
                     mtrace('Task: Skipping recording #' . $recording->id . ' was previously saved and exists in the db.');
                     continue;
@@ -464,7 +463,7 @@ class local_stream_help {
             $meeting->meetingId = end($meeting->explode);
 
             if ($exists = $DB->get_record('local_stream_rec',
-                    array('meetingid' => $meeting->meetingId, 'recordingid' => $meeting->id))) {
+                    ['meetingid' => $meeting->meetingId, 'recordingid' => $meeting->id,])) {
 
                 mtrace('Task: Skipping recording #' . $meeting->id . ' was previously saved and exists in the db.');
                 continue;
@@ -534,7 +533,7 @@ class local_stream_help {
             $i++;
 
             if ($exists = $DB->get_record('local_stream_rec',
-                    array('meetingid' => $meeting->id, 'recordingid' => $meeting->meeting))) {
+                    ['meetingid' => $meeting->id, 'recordingid' => $meeting->meeting,])) {
 
                 mtrace('Task: Skipping recording #' . $meeting->id . ' was previously saved and exists in the db.');
                 continue;
@@ -585,7 +584,7 @@ class local_stream_help {
 
         $task = new \local_stream\task\notifications();
         $meeting = $DB->get_record('local_stream_rec',
-                array('id' => $id));
+                ['id' => $id]);
 
         $cm = get_coursemodule_from_instance('page', $meeting->moduleid);
 
@@ -595,7 +594,7 @@ class local_stream_help {
 
                 if ($status == $this::MEETING_STATUS_DELETED) {
                     $source = $DB->get_record('course_modules',
-                            array('course' => $meeting->course, 'instance' => $meeting->moduleid));
+                            ['course' => $meeting->course, 'instance' => $meeting->moduleid]);
                     delete_mod_from_section($source->id, $source->section);
                     if ($cm) {
                         course_modinfo::purge_course_module_cache($meeting->course, $cm->id);
@@ -652,7 +651,7 @@ class local_stream_help {
     public function recover_recording($id) {
         global $DB;
 
-        $meeting = $DB->get_record('local_stream_rec', array('id' => $id));
+        $meeting = $DB->get_record('local_stream_rec', ['id' => $id]);
         if ($meeting) {
 
             if (!isset($meeting->meetingdata)) {
@@ -664,19 +663,19 @@ class local_stream_help {
                         $this->call_webex_api('recordings/' . $meeting->recordingid . '?hostEmail=' . $meeting->email, null, 'get');
                 if (isset($recover->temporaryDirectDownloadLinks)) {
                     $meeting->recordingdata = json_encode($recover);
-                    $recover = array(
-                            'http_code' => 204
-                    );
+                    $recover = [
+                            'http_code' => 204,
+                    ];
                 } else {
-                    $recover = array(
-                            'http_code' => 404
-                    );
+                    $recover = [
+                            'http_code' => 404,
+                    ];
                 }
 
             } else if ($this->config->platform == $this::PLATFORM_ZOOM) {
                 // Recover meeting recordings.
                 $recover =
-                        $this->call_zoom_api('meetings/' . $meeting->meetingid . '/recordings/status', array('action' => 'recover'),
+                        $this->call_zoom_api('meetings/' . $meeting->meetingid . '/recordings/status', ['action' => 'recover'],
                                 'put', true);
             }
 
@@ -687,7 +686,7 @@ class local_stream_help {
 
             if ($meeting->course && $meeting->moduleid) {
                 $source = $DB->get_record('course_modules',
-                        array('course' => $meeting->course, 'instance' => $meeting->moduleid));
+                        ['course' => $meeting->course, 'instance' => $meeting->moduleid]);
 
                 delete_mod_from_section($source->id, $source->section);
             }
@@ -715,9 +714,9 @@ class local_stream_help {
     public function download_recording($id) {
         global $DB;
 
-        $recording = $DB->get_record('local_stream_rec', array('id' => $id));
+        $recording = $DB->get_record('local_stream_rec', ['id' => $id]);
         if ($recording) {
-            $urlparams = array();
+            $urlparams = [];
             $urlparams['forcedownload'] = 1;
             $downloadurl = $this->get_meeting($recording);
 
@@ -769,10 +768,10 @@ class local_stream_help {
         $moduledata->idnumber = $meeting->idnumber;
         $moduledata->visible = ($this->config->hidefromstudents ? 0 : 1);
         $moduledata->contentformat = FORMAT_HTML;
-        $moduledata->introeditor = array(
+        $moduledata->introeditor = [
                 'text' => true,
-                'format' => true
-        );
+                'format' => true,
+        ];
 
         if ($this->config->storage == $this::STORAGE_NODOWNLOAD) {
 
@@ -866,8 +865,8 @@ class local_stream_help {
         }
 
         if (!isset($capability)) {
-            $teacher = $DB->get_record('role', array('shortname' => 'teacher'));
-            $editingteacher = $DB->get_record('role', array('shortname' => 'editingteacher'));
+            $teacher = $DB->get_record('role', ['shortname' => 'teacher',]);
+            $editingteacher = $DB->get_record('role', ['shortname' => 'editingteacher',]);
 
             $capability = false;
             if (user_has_role_assignment($USER->id, $teacher->id) || user_has_role_assignment($USER->id, $editingteacher->id) ||
@@ -1145,11 +1144,10 @@ class local_stream_help {
                     'scope' => 'https://graph.microsoft.com/.default',
             ];
 
-            $options = array(
+            $options = [
                     'CURLOPT_POST' => true,
                     'CURLOPT_RETURNTRANSFER' => true,
-
-            );
+            ];
 
             $curl = new \curl();
             $jsonresult = $curl->post($url, $data, $options);
@@ -1172,10 +1170,10 @@ class local_stream_help {
                 'Accept: application/json',
         ];
 
-        $options = array(
+        $options = [
                 'CURLOPT_RETURNTRANSFER' => true,
                 'CURLOPT_HTTPHEADER' => $headers,
-        );
+        ];
 
         $curl = new \curl();
         $jsonresult = $curl->get('https://graph.microsoft.com/v1.0' . $path, null, $options);
@@ -1349,7 +1347,7 @@ class local_stream_help {
         $newrecording->embedded = 0;
         $newrecording->visible = ($this->config->hidefromstudents ? 0 : 1);
         $newrecording->recordingdata =
-                json_encode(array('fileid' => $data->id, 'file_size' => $data->size, 'play_url' => $data->webUrl));
+                json_encode(['fileid' => $data->id, 'file_size' => $data->size, 'play_url' => $data->webUrl]));
         $newrecording->starttime = $start;
         $newrecording->fileid = $data->id;
 
@@ -1387,15 +1385,15 @@ class local_stream_help {
 
         $url = $this->config->streamurl . '/webservice/api.php';
 
-        $headers = array(
+        $headers = [
                 'Authorization: Bearer ' . $this->config->streamkey,
-        );
+        ];
 
-        $options = array(
+        $options = [
                 'CURLOPT_POST' => true,
                 'CURLOPT_RETURNTRANSFER' => true,
                 'CURLOPT_HTTPHEADER' => $headers,
-        );
+        ];
 
         $curl = new \curl();
         $jsonresult = $curl->post($url, $data, $options);

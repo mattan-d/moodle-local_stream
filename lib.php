@@ -83,7 +83,7 @@ class local_stream_meeting_form extends moodleform {
     public function set_data($data) {
         global $DB, $help, $id;
 
-        $meeting = $DB->get_record('local_stream_rec', array('id' => $id));
+        $meeting = $DB->get_record('local_stream_rec', ['id' => $id]);
 
         $recordingurl = $help->get_meeting($meeting);
         $data->embeddingcode .= '<video controls="true" controlsList="nodownload" oncontextmenu="return false;"><source src="' .
@@ -128,10 +128,10 @@ class local_stream_form extends moodleform {
         $mform->setType('topic', PARAM_TEXT);
 
         $courses = $help->get_courses();
-        $options = array(
+        $options = [
                 'multiple' => false,
                 'showsuggestions' => true,
-        );
+        ];
 
         $mform->addElement('autocomplete', 'course', get_string('course'), $courses, $options);
 
@@ -192,28 +192,28 @@ class local_stream_embed_form extends moodleform {
         $mform->addElement('header', 'embedvideo', get_string('embeddedrecordings', 'local_stream'));
 
         $mform->addElement('hidden', 'id');
-        $mform->addElement('static', 'topic', get_string('topic', 'local_stream'), array('size' => 120));
-        $mform->addElement('static', 'duration', get_string('duration', 'local_stream'), array('size' => 120));
+        $mform->addElement('static', 'topic', get_string('topic', 'local_stream'), ['size' => 120]);
+        $mform->addElement('static', 'duration', get_string('duration', 'local_stream'), ['size' => 120]);
 
         if ($mform->participant) {
             $mform->addElement('static', 'participants', get_string('participants', 'local_stream'),
-                    array('size' => 120));
+                    ['size' => 120]);
         }
 
         $courses = $help->get_courses(true);
-        $options = array(
-                'multiple' => false
-        );
+        $options = [
+                'multiple' => false,
+        ];
 
         $mform->addElement('autocomplete', 'course', get_string('course'), $courses, $options);
 
-        $buttonarray = array();
-        $classarray = array('class' => 'form-submit');
+        $buttonarray = [];
+        $classarray = ['class' => 'form-submit',];
 
         $buttonarray[] = &$mform->createElement('submit', 'saveandreturn', get_string('savechangesandreturn'), $classarray);
         $buttonarray[] = &$mform->createElement('submit', 'saveanddisplay', get_string('savechangesanddisplay'), $classarray);
         $buttonarray[] = &$mform->createElement('cancel');
-        $mform->addGroup($buttonarray, 'buttonar', '', array(' '), false);
+        $mform->addGroup($buttonarray, 'buttonar', '', [' '], false);
         $mform->closeHeaderBefore('buttonar');
     }
 

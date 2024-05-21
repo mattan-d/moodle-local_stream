@@ -59,7 +59,7 @@ class upload extends \core\task\scheduled_task {
         global $DB, $CFG;
 
         $task = new \local_stream\task\notifications();
-        $meetings = $DB->get_records_list('local_stream_rec', 'status', array(0, 1));
+        $meetings = $DB->get_records_list('local_stream_rec', 'status', [$help::MEETING_STATUS_PROCESS,]);
         if (!$meetings) {
             mtrace('Task: No meetings were found.');
             return true;
@@ -87,13 +87,13 @@ class upload extends \core\task\scheduled_task {
 
             // Zoom.
             if ($help->config->platform == $help::PLATFORM_ZOOM) {
-                if ($zoom = $DB->get_record('zoom', array('meeting_id' => $meeting->meetingid))) {
+                if ($zoom = $DB->get_record('zoom', ['meeting_id' => $meeting->meetingid])) {
                     if ($zoom->course && $course = get_course($zoom->course)) {
 
                         $course->tags = $help->get_category_tree($course->category);
-                        $course->page = new moodle_url('/course/view.php', array('id' => $course->id));
+                        $course->page = new moodle_url('/course/view.php', ['id' => $course->id]);
                         $meeting->description =
-                                'הוקלט מתוך מערכת Moodle:' . "\n\n" . $course->fullname . "\n" . $course->page . "\n";
+                                'Recorded from Zoom:' . "\n\n" . $course->fullname . "\n" . $course->page . "\n";
                     }
                 }
             }
@@ -105,7 +105,7 @@ class upload extends \core\task\scheduled_task {
                     'description' => $meeting->description,
                     'downloadurl' => $recordingdata->download_url,
                     'tags' => $course->tags,
-                    'category' => $help->config->streamcategoryid
+                    'category' => $help->config->streamcategoryid,
             ]);
 
             if ($videoid) {

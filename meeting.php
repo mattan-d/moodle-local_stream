@@ -48,7 +48,7 @@ $fs = get_file_storage();
 $context = context_system::instance();
 $meetingform = new local_stream_meeting_form();
 
-$data = $DB->get_record('local_stream_rec', array('id' => $id));
+$data = $DB->get_record('local_stream_rec', ['id' => $id]);
 
 echo $OUTPUT->header();
 $meetingform->set_data($data);

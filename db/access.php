@@ -24,21 +24,21 @@
 
 defined('MOODLE_INTERNAL') || die;
 
-$capabilities = array(
-        'local/stream:manage' => array(
+$capabilities = [
+        'local/stream:manage' => [
                 'captype' => 'write',
                 'contextlevel' => CONTEXT_SYSTEM,
-                'archetypes' => array(
+                'archetypes' => [
                         'user' => CAP_ALLOW,
                         'editingteacher' => CAP_ALLOW,
                         'teacher' => CAP_ALLOW
-                ),
-        ),
-        'local/stream:view' => array(
+                ],
+        ],
+        'local/stream:view' => [
                 'captype' => 'read',
                 'contextlevel' => CONTEXT_SYSTEM,
-                'archetypes' => array(
+                'archetypes' => [
                         'user' => CAP_ALLOW,
-                ),
-        ),
-);
+                ],
+        ],
+];
