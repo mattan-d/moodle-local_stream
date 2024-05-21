@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/stream/db" VERSION="2023121700" COMMENT="XMLDB file for Moodle local_stream"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+    <TABLES>
+        <TABLE NAME="local_stream_rec" COMMENT="recordings">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+                <FIELD NAME="topic" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="email" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="dept" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="starttime" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="endtime" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="duration" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="participants" TYPE="int" LENGTH="20" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="meetingid" TYPE="int" LENGTH="20" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="recordingid" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="visible" TYPE="int" LENGTH="1" DEFAULT="1" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="embedded" TYPE="int" LENGTH="1" DEFAULT="0" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="course" TYPE="int" LENGTH="10" DEFAULT="0" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="status" TYPE="int" LENGTH="1" DEFAULT="0" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="tries" TYPE="int" LENGTH="1" DEFAULT="0" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="views" TYPE="int" LENGTH="20" DEFAULT="0" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="streamid" TYPE="int" LENGTH="20" DEFAULT="0" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="meetingdata" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="recordingdata" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="moduleid" TYPE="int" LENGTH="20" DEFAULT="0" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="fileid" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+                <KEY NAME="recordingid" TYPE="unique" FIELDS="recordingid"/>
+            </KEYS>
+        </TABLE>
+    </TABLES>
+</XMLDB>
