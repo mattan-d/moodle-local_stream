@@ -1387,7 +1387,7 @@ class local_stream_help {
      */
     public function upload_stream($data) {
 
-        $url = $this->config->streamurl . '/webservice/api.php';
+        $url = $this->config->streamurl . '/webservice/api/v1';
 
         $headers = [
                 'Authorization: Bearer ' . $this->config->streamkey,
