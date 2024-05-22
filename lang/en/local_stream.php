@@ -38,6 +38,7 @@ $string['daystolisting'] = 'Days to listing';
 $string['deleterecordings'] = 'Delete recordings';
 $string['department'] = 'Department';
 $string['downloadrecordings'] = 'Download recordings';
+$string['duration'] = 'Duration';
 $string['email'] = 'Email';
 $string['embeddedrecordings'] = 'Embedded recordings';
 $string['embeddingsettings'] = 'Embedding';
