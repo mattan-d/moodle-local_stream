@@ -71,6 +71,10 @@ $string['platform_settings'] = 'Platform settings';
 $string['pluginname'] = 'Stream integration';
 $string['prefix'] = 'Prefix';
 $string['prefix_desc'] = 'This prefix will appear at the beginning of the recording name in the course.';
+$string['privacy:metadata:stream'] =
+        'In order to integrate with a remote Stream service, user data needs to be exchanged with that service';
+$string['privacy:metadata:stream:email'] = 'The email is sent from Moodle to allow you to access your data on stream server.';
+$string['privacy:metadata:stream:fullname'] = 'Your full name is sent to the remote system to allow a better user experience';
 $string['progress'] = 'In progress';
 $string['recording'] = 'Recording';
 $string['recording_type'] = 'Recording type';
