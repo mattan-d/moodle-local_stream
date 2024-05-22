@@ -71,6 +71,8 @@ $string['platform_settings'] = 'הגדרות פלטפורמה לשיחות וע�
 $string['pluginname'] = 'Stream Integration';
 $string['prefix'] = 'קידומת לשם הפעילות';
 $string['prefix_desc'] = 'קידומת זו תופיע בתחילת שם ההקלטה בקורס.';
+$string['privacy:metadata:local_stream_rec'] = 'נתונים אישיים מטבלת הפגישות.';
+$string['privacy:metadata:local_stream_rec:email'] = 'נתוני דוא"ל משתמש מטבלת הפגישות.';
 $string['privacy:metadata:stream'] =
         'על מנת להשתלב עם שירות Stream מרוחק, יש להחליף נתוני משתמש עם השירות הזה';
 $string['privacy:metadata:stream:email'] = 'האימייל נשלח ממודל כדי לאפשר לך לגשת לנתונים שלך בשרת Stream.';

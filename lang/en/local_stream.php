@@ -71,6 +71,8 @@ $string['platform_settings'] = 'Platform settings';
 $string['pluginname'] = 'Stream integration';
 $string['prefix'] = 'Prefix';
 $string['prefix_desc'] = 'This prefix will appear at the beginning of the recording name in the course.';
+$string['privacy:metadata:local_stream_rec'] = 'Personal data from meetings table.';
+$string['privacy:metadata:local_stream_rec:email'] = 'User email data from meetings table.';
 $string['privacy:metadata:stream'] =
         'In order to integrate with a remote Stream service, user data needs to be exchanged with that service';
 $string['privacy:metadata:stream:email'] = 'The email is sent from Moodle to allow you to access your data on stream server.';
