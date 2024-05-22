@@ -1386,7 +1386,6 @@ class local_stream_help {
      * @return mixed The stream ID if successful, false otherwise.
      */
     public function upload_stream($data) {
-        global $DB;
 
         $url = $this->config->streamurl . '/webservice/api.php';
 
