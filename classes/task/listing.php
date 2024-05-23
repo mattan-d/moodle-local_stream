@@ -83,8 +83,12 @@ class listing extends \core\task\scheduled_task {
                     $data->order = 'desc';
                     $help->listing_webex($data);
                 } else if ($help->config->platform == $help::PLATFORM_UNICKO) { // Unicko.
-                    $data->max = 100;
+                    $data->page_size = 100;
+                    $data->order = 'desc';
+                    $data->inpage = 1;
+                    $data->maxpages = $days;
                     $help->listing_unicko($data);
+                    break;
                 }
             }
 

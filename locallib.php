@@ -535,23 +535,26 @@ class local_stream_help {
         foreach ($meetings->items as $meeting) {
 
             mtrace('Task: Checking meeting ' . $i . ' out of ' . $totalcount . ' #' . $meeting->id);
-            $i++;
 
+            $i++;
             if ($exists = $DB->get_record('local_stream_rec',
-                    ['meetingid' => $meeting->id, 'recordingid' => $meeting->meeting])) {
+                    ['meetingid' => $meeting->meeting, 'recordingid' => $meeting->id])) {
 
                 mtrace('Task: Skipping recording #' . $meeting->id . ' was previously saved and exists in the db.');
                 continue;
             }
 
+            $details = $this->call_unicko_api('meetings/' . $meeting->meeting, null, 'get');
             mtrace('Task: A new recording was found and saved in the database.');
 
+            $meeting->instanceid = $details->ext_id;
+
             $newrecording = new stdClass();
-            $newrecording->topic = $meeting->meeting;
+            $newrecording->topic = $details->name;
             $newrecording->starttime = $meeting->start_time;
             $newrecording->endtime = $meeting->end_time;
-            $newrecording->meetingid = $meeting->id;
-            $newrecording->recordingid = $meeting->meeting;
+            $newrecording->meetingid = $meeting->meeting;
+            $newrecording->recordingid = $meeting->id;
             $newrecording->meetingdata = json_encode($meeting);
             $newrecording->recordingdata = json_encode($meeting);
             $newrecording->timecreated = time();
@@ -567,10 +570,14 @@ class local_stream_help {
 
         // Next page.
         if ($meetings->paging) {
-            $parsed = parse_url($meetings->next);
+            $parsed = parse_url($meetings->paging->next);
             parse_str($parsed['query'], $data);
             $data = (object) $data;
-            return $this->listing_unicko($data);
+
+            if ($data->inpage <= $data->maxpages) {
+                $data->inpage++;
+                return $this->listing_unicko($data);
+            }
         }
     }
 
@@ -1403,7 +1410,6 @@ class local_stream_help {
         $jsonresult = $curl->post($url, $data, $options);
 
         $response = json_decode($jsonresult);
-
         if (isset($response->streamid)) {
             mtrace('Task: Stream ID: ' . $response->streamid);
             return $response->streamid;

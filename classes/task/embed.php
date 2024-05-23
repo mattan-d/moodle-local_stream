@@ -73,13 +73,31 @@ class embed extends \core\task\scheduled_task {
 
         } else if ($help->config->platform == $help::PLATFORM_TEAMS) {
             $module = $DB->get_record('modules', ['name' => 'msteams']);
+        } else if ($help->config->platform == $help::PLATFORM_UNICKO) {
+            $module = $DB->get_record('modules', ['name' => 'lti']);
         }
 
         foreach ($meetings as $meeting) {
 
+            $platform = false;
+
+            // Zoom.
             if ($help->config->platform == $help::PLATFORM_ZOOM) {
                 $platform = $DB->get_record('zoom', ['meeting_id' => $meeting->meetingid]);
-            } else if ($help->config->platform == $help::PLATFORM_TEAMS) {
+            }
+
+            // Unicko.
+            if ($help->config->platform == $help::PLATFORM_UNICKO) {
+                $recordingdata = json_decode($meeting->recordingdata);
+                if (isset($recordingdata->instanceid) && $recordingdata->instanceid) {
+                    $platform = $DB->get_record('course_modules',
+                            ['instance' => $recordingdata->instanceid, 'module' => $module->id]);
+                    $platform->id = $recordingdata->instanceid;
+                }
+            }
+
+            // Teams.
+            if ($help->config->platform == $help::PLATFORM_TEAMS) {
 
                 // Define a regular expression pattern to match the ID.
                 $pattern = '/^.*:meeting_([A-Za-z0-9]+)@thread\.v2$/';
@@ -103,8 +121,6 @@ class embed extends \core\task\scheduled_task {
                     $platform->course = $details['courseid'];
                 }
 
-            } else {
-                $platform = false;
             }
 
             if (!$platform) {
@@ -130,7 +146,6 @@ class embed extends \core\task\scheduled_task {
                 }
 
                 if ($page = $help->add_module($meeting)) {
-
                     $source = $DB->get_record('course_modules',
                             ['course' => $platform->course, 'instance' => $page->id]);
                     $destination = $DB->get_record('course_modules',
@@ -139,7 +154,7 @@ class embed extends \core\task\scheduled_task {
                     $section = $DB->get_record('course_sections',
                             ['course' => $platform->course, 'id' => $destination->section]);
 
-                    // Hack for TEAMS.
+                    // Hack for teams.
                     if (isset($details['sectionname']) && $details['sectionname']) {
                         $section = $DB->get_record('course_sections',
                                 ['course' => $platform->course, 'name' => $details['sectionname']]);
