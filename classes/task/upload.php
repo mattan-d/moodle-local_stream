@@ -100,14 +100,16 @@ class upload extends \core\task\scheduled_task {
             }
 
             // Stream Upload.
-            $videoid = $help->upload_stream([
-                    'topic' => $meeting->topic,
-                    'email' => $meeting->email,
-                    'description' => $meeting->description,
-                    'downloadurl' => $recordingdata->download_url,
-                    'tags' => $course->tags,
-                    'category' => $help->config->streamcategoryid,
-            ]);
+            if (isset($recordingdata->download_url) && $recordingdata->download_url) {
+                $videoid = $help->upload_stream([
+                        'topic' => $meeting->topic,
+                        'email' => $meeting->email,
+                        'description' => $meeting->description,
+                        'downloadurl' => $recordingdata->download_url,
+                        'tags' => $course->tags,
+                        'category' => $help->config->streamcategoryid,
+                ]);
+            }
 
             if ($videoid) {
                 $meeting->streamid = $videoid;

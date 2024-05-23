@@ -540,7 +540,18 @@ class local_stream_help {
             if ($exists = $DB->get_record('local_stream_rec',
                     ['meetingid' => $meeting->meeting, 'recordingid' => $meeting->id])) {
 
-                mtrace('Task: Skipping recording #' . $meeting->id . ' was previously saved and exists in the db.');
+                if ($exists->status != $this::MEETING_STATUS_READY) {
+                    $exists->starttime = $meeting->start_time;
+                    $exists->endtime = $meeting->end_time;
+                    $exists->meetingdata = json_encode($meeting);
+                    $exists->recordingdata = json_encode($meeting);
+
+                    $DB->update_record('local_stream_rec', $exists);
+                    mtrace('Task: Updating recording #' . $meeting->id . ' details in the db.');
+                } else {
+                    mtrace('Task: Skipping recording #' . $meeting->id . ' was previously saved and exists in the db.');
+                }
+
                 continue;
             }
 
@@ -574,10 +585,11 @@ class local_stream_help {
             parse_str($parsed['query'], $data);
             $data = (object) $data;
 
-            if ($data->inpage <= $data->maxpages) {
-                $data->inpage++;
-                return $this->listing_unicko($data);
-            }
+            mtrace(json_encode($data));
+            mtrace('Task: Page #' . $data->inpage . ' of #' . $data->maxpages);
+
+            $data->inpage++;
+            return $this->listing_unicko($data);
         }
     }
 

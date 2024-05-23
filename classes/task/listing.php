@@ -55,17 +55,22 @@ class listing extends \core\task\scheduled_task {
         global $DB;
 
         $help = new \local_stream_help();
+        $days = $help->config->daystolisting;
+        $today = date('Y-m-d', strtotime('-0 day', time()));
 
-        // Only 1 time running.
+        $data = new \stdClass();
+        $data->from = $today;
+        $data->to = $today;
+
         if ($help->config->platform == $help::PLATFORM_TEAMS) { // Teams.
             $help->listing_teams();
+        } else if ($help->config->platform == $help::PLATFORM_UNICKO) { // Unicko.
+            $data->page_size = 100;
+            $data->order = 'desc';
+            $help->listing_unicko($data);
         } else {
-
-            $days = $help->config->daystolisting;
             for ($i = $days; $i >= 0; $i--) {
                 $today = date('Y-m-d', strtotime('-' . $i . ' day', time()));
-
-                $data = new \stdClass();
                 $data->from = $today;
                 $data->to = $today;
 
@@ -82,16 +87,8 @@ class listing extends \core\task\scheduled_task {
                     $data->max = 100;
                     $data->order = 'desc';
                     $help->listing_webex($data);
-                } else if ($help->config->platform == $help::PLATFORM_UNICKO) { // Unicko.
-                    $data->page_size = 100;
-                    $data->order = 'desc';
-                    $data->inpage = 1;
-                    $data->maxpages = $days;
-                    $help->listing_unicko($data);
-                    break;
                 }
             }
-
         }
 
         return true;

@@ -68,8 +68,15 @@ if ($hassiteconfig) {
             get_string('recordingsperpage', 'local_stream'), '', 30, $options));
 
     $options = [
-            0 => get_string('today'), 1 => 1 . ' ' . get_string('days'), 3 => 3 . ' ' . get_string('days'),
-            7 => 7 . ' ' . get_string('days'), 14 => 14 . ' ' . get_string('days'), 31 => 31 . ' ' . get_string('days'),
+            0 => get_string('today'),
+            1 => 1 . ' ' . get_string('days'),
+            3 => 3 . ' ' . get_string('days'),
+            7 => 7 . ' ' . get_string('days'),
+            14 => 14 . ' ' . get_string('days'),
+            31 => 31 . ' ' . get_string('days'),
+            365 => 1 . ' ' . get_string('years'),
+            730 => 2 . ' ' . get_string('years'),
+            1095 => 3 . ' ' . get_string('years'),
     ];
 
     $settings->add(new admin_setting_configselect('local_stream/daystolisting',
