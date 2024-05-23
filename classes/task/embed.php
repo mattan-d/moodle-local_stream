@@ -154,7 +154,9 @@ class embed extends \core\task\scheduled_task {
                     $section = $DB->get_record('course_sections',
                             ['course' => $platform->course, 'id' => $destination->section]);
 
-                    // Hack for teams.
+                    // Check if the 'sectionname' from the Moodle course matches the meeting name from Microsoft Teams.
+                    // If it does, retrieve the corresponding course section record from the database using the course ID
+                    // and section name. If the section is found, move the specified module to that section.
                     if (isset($details['sectionname']) && $details['sectionname']) {
                         $section = $DB->get_record('course_sections',
                                 ['course' => $platform->course, 'name' => $details['sectionname']]);
