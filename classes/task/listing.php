@@ -67,6 +67,7 @@ class listing extends \core\task\scheduled_task {
         } else if ($help->config->platform == $help::PLATFORM_UNICKO) { // Unicko.
             $data->page_size = 100;
             $data->order = 'desc';
+            $data->days = $days;
             $help->listing_unicko($data);
         } else {
             for ($i = $days; $i >= 0; $i--) {

@@ -531,8 +531,21 @@ class local_stream_help {
             mtrace('Task: Found ' . $totalcount . ' meetings');
         }
 
+        // Get the current time and the time for $data->days days ago.
+        $currenttime = time();
+        $daysago = strtotime('-' . ($data->days + 1) . ' days', $currenttime);
+        $stop = false;
+
         $i = 0;
         foreach ($meetings->items as $meeting) {
+
+            // Get the timestamp for the end time of the meeting.
+            $meetingendtime = strtotime($meeting->end_time);
+            $stop = ($meetingendtime < $daysago ? true : false);
+
+            if ($stop) {
+                continue;
+            }
 
             mtrace('Task: Checking meeting ' . $i . ' out of ' . $totalcount . ' #' . $meeting->id);
 
@@ -580,15 +593,11 @@ class local_stream_help {
         }
 
         // Next page.
-        if ($meetings->paging) {
+        if (isset($meetings->paging) && !$stop) {
             $parsed = parse_url($meetings->paging->next);
             parse_str($parsed['query'], $data);
             $data = (object) $data;
 
-            mtrace(json_encode($data));
-            mtrace('Task: Page #' . $data->inpage . ' of #' . $data->maxpages);
-
-            $data->inpage++;
             return $this->listing_unicko($data);
         }
     }
