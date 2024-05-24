@@ -99,6 +99,11 @@ class upload extends \core\task\scheduled_task {
                 }
             }
 
+            // Unicko.
+            if ($help->config->platform == $help::PLATFORM_UNICKO) {
+
+            }
+
             // Stream Upload.
             if (isset($recordingdata->download_url) && $recordingdata->download_url) {
                 $videoid = $help->upload_stream([

@@ -41,12 +41,12 @@ class local_stream_help {
     /**
      * @var stdClass Configuration for the local_stream plugin
      */
-    private $config;
+    public $config;
 
     /**
      * @var cache Cache object for the streamdata
      */
-    private $cache;
+    public $cache;
 
     /**
      * Constant representing the Zoom platform.
