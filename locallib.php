@@ -39,6 +39,16 @@ require_once($CFG->dirroot . '/message/lib.php');
 class local_stream_help {
 
     /**
+     * @var stdClass Configuration for the local_stream plugin
+     */
+    private $config;
+
+    /**
+     * @var cache Cache object for the streamdata
+     */
+    private $cache;
+
+    /**
      * Constant representing the Zoom platform.
      */
     public const PLATFORM_ZOOM = 0;
