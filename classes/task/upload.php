@@ -81,6 +81,9 @@ class upload extends \core\task\scheduled_task {
 
             $recordingdata = json_decode($meeting->recordingdata);
 
+            # Meeting data for stream.
+            $stream = [];
+
             // Webex.
             if ($help->config->platform == $help::PLATFORM_WEBEX) {
                 $recordingdata->download_url = $recordingdata->temporaryDirectDownloadLinks->recordingDownloadLink;
@@ -90,30 +93,39 @@ class upload extends \core\task\scheduled_task {
             if ($help->config->platform == $help::PLATFORM_ZOOM) {
                 if ($zoom = $DB->get_record('zoom', ['meeting_id' => $meeting->meetingid])) {
                     if ($zoom->course && $course = get_course($zoom->course)) {
-
-                        $course->tags = $help->get_category_tree($course->category);
-                        $course->page = new moodle_url('/course/view.php', ['id' => $course->id]);
-                        $meeting->description =
-                                'Recorded from Zoom:' . "\n\n" . $course->fullname . "\n" . $course->page . "\n";
+                        $stream['tags'] = $help->get_category_tree($course->category);
+                        $course->page = new \moodle_url('/course/view.php', ['id' => $course->id]);
+                        $stream['description'] =
+                                '[Zoom] Meeting#' . $meeting->meetingid . "\n\n" . $course->fullname . "\n" . $course->page . "\n";
                     }
                 }
             }
 
             // Unicko.
             if ($help->config->platform == $help::PLATFORM_UNICKO) {
-
+                $module = $DB->get_record('modules', ['name' => 'lti']);
+                if (isset($recordingdata->instanceid) && $recordingdata->instanceid) {
+                    if ($cm = $DB->get_record('course_modules',
+                            ['instance' => $recordingdata->instanceid, 'module' => $module->id])) {
+                        if ($course = get_course($cm->course)) {
+                            $stream['tags'] = $help->get_category_tree($course->category);
+                            $course->page = new \moodle_url('/course/view.php', ['id' => $course->id]);
+                            $stream['description'] =
+                                    '[Unicko] Meeting#' . $meeting->meetingid . "\n\n" . $course->fullname . "\n" . $course->page .
+                                    "\n";
+                        }
+                    }
+                }
             }
 
             // Stream Upload.
+            $stream['topic'] = $meeting->topic;
+            $stream['email'] = $meeting->email;
+            $stream['downloadurl'] = $recordingdata->download_url;
+            $stream['category'] = $help->config->streamcategoryid;
+
             if (isset($recordingdata->download_url) && $recordingdata->download_url) {
-                $videoid = $help->upload_stream([
-                        'topic' => $meeting->topic,
-                        'email' => $meeting->email,
-                        'description' => $meeting->description,
-                        'downloadurl' => $recordingdata->download_url,
-                        'tags' => $course->tags,
-                        'category' => $help->config->streamcategoryid,
-                ]);
+                $videoid = $help->upload_stream($stream);
             }
 
             if ($videoid) {

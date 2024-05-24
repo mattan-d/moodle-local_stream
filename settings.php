@@ -77,6 +77,7 @@ if ($hassiteconfig) {
             365 => 1 . ' ' . get_string('years'),
             730 => 2 . ' ' . get_string('years'),
             1095 => 3 . ' ' . get_string('years'),
+            3650 => 10 . ' ' . get_string('years'),
     ];
 
     $settings->add(new admin_setting_configselect('local_stream/daystolisting',
