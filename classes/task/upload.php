@@ -81,7 +81,7 @@ class upload extends \core\task\scheduled_task {
 
             $recordingdata = json_decode($meeting->recordingdata);
 
-            # Meeting data for stream.
+            // Meeting data for stream.
             $stream = [];
 
             // Webex.
