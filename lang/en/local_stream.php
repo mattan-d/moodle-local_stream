@@ -101,6 +101,7 @@ $string['streamkey'] = 'Stream key';
 $string['streamurl'] = 'Stream URL';
 $string['syncmteams'] = 'Sync MS Teams';
 $string['teams'] = 'Microsoft Teams';
+$string['teamsusersfilter'] = 'Filter users list';
 $string['tenantid'] = 'Tenant ID';
 $string['topic'] = 'Topic';
 $string['unicko'] = 'Unicko';

@@ -108,6 +108,10 @@ if ($hassiteconfig) {
             get_string('tenantid', 'local_stream'), '', ''));
     $settings->hide_if('local_stream/teamstenantid', 'local_stream/platform', 'in', '0|1|3');
 
+    $settings->add(new admin_setting_configtextarea('local_stream/teamsusersfilter',
+            get_string('teamsusersfilter', 'local_stream'), '', ''));
+    $settings->hide_if('local_stream/teamsusersfilter', 'local_stream/platform', 'in', '0|1|3');
+
     // WEBEX.
     $settings->add(new admin_setting_configtext('local_stream/webexjwt',
             get_string('webexjwt', 'local_stream'), '', ''));

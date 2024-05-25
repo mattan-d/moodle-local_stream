@@ -1248,26 +1248,14 @@ class local_stream_help {
             }
         }
 
-        $allownames = [
-                'geriatria',
-                'hasava',
-                'oncologia',
-                'gastro',
-                'nituah',
-                'nefrologia',
-                'psich',
-                'hybrid',
-                'class',
-                'tipuln',
-        ];
+        $userlistfiler = explode("\n", trim($this->config->teamsusersfilter));
 
-        // Filter only moolde courses, only user contain "hasava".
         foreach ($tmpgroups as $tmpgroup) {
             foreach ($tmpowners[$tmpgroup]->value as $owner) {
 
                 $allow = false;
-                foreach ($allownames as $name) {
-                    if (strpos($owner->mail, $name) !== false) {
+                foreach ($userlistfiler as $username) {
+                    if (strpos($owner->mail, $username) !== false) {
                         $allow = true;
                         break;
                     }

@@ -102,6 +102,7 @@ $string['streamkey'] = 'מפתח Stream';
 $string['streamurl'] = 'כתובת URL מערכת Stream';
 $string['syncmteams'] = 'Sync MS Teams';
 $string['teams'] = 'מיקרוסופט טימס';
+$string['teamsusersfilter'] = 'סינון שמות משתמשים';
 $string['tenantid'] = 'Tenant ID';
 $string['topic'] = 'נושא';
 $string['unicko'] = 'יוניקו';
