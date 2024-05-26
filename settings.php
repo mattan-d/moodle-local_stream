@@ -46,7 +46,7 @@ if ($hassiteconfig) {
             get_string('streamurl', 'local_stream'), '', ''));
 
     $settings->add(new admin_setting_configtext('local_stream/streamkey',
-            get_string('streamkey', 'local_stream'), '', ''));
+            get_string('streamkey', 'local_stream'), get_string('streamkey_desc', 'local_stream'), ''));
 
     $settings->add(new admin_setting_configtext('local_stream/streamcategoryid',
             get_string('streamcategoryid', 'local_stream'), '', ''));

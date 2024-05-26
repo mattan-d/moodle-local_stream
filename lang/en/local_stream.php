@@ -98,6 +98,7 @@ $string['stream:manage'] = 'Manage and view meetings';
 $string['stream:view'] = 'View recordings';
 $string['streamcategoryid'] = 'Stream category ID';
 $string['streamkey'] = 'Stream key';
+$string['streamkey_desc'] = 'To obtain the key, please <a href="https://stream-platform.cloud/" target="_blank">visit here</a>.';
 $string['streamurl'] = 'Stream URL';
 $string['syncmteams'] = 'Sync MS Teams';
 $string['teams'] = 'Microsoft Teams';

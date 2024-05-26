@@ -99,6 +99,7 @@ $string['stream:manage'] = 'ניהול וצפיה בהקלטות';
 $string['stream:view'] = 'צפיה בהקלטות זום';
 $string['streamcategoryid'] = 'ערוץ ברירת מחדל ב-Stream';
 $string['streamkey'] = 'מפתח Stream';
+$string['streamkey_desc'] = 'כדי לקבל את המפתח, אנא <a href="https://stream-platform.cloud/" target="_blank">בקר כאן</a>.';
 $string['streamurl'] = 'כתובת URL מערכת Stream';
 $string['syncmteams'] = 'Sync MS Teams';
 $string['teams'] = 'מיקרוסופט טימס';
