@@ -89,7 +89,6 @@ $string['recordingshidden'] = 'ההקלטה #{$a} הוסתרה בקורס.';
 $string['recordingshow'] = 'ההקלטה #{$a} מוצגת באופן גלוי בקורס.';
 $string['recordingsperpage'] = 'מספר הקלטות לעמוד';
 $string['refreshtoken'] = 'יצירת אסימון חדש';
-$string['secrettoken'] = 'מזהה טוקן Webhook';
 $string['settingspage'] = 'הגדרות Stream Integration';
 $string['starttime'] = 'שעת התחלה';
 $string['status'] = 'סטטוס';

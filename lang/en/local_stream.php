@@ -88,7 +88,6 @@ $string['recordingshidden'] = 'The recording #{$a} has been hidden.';
 $string['recordingshow'] = 'The recording #{$a} has been shown.';
 $string['recordingsperpage'] = 'Recordings per page';
 $string['refreshtoken'] = 'Refresh token';
-$string['secrettoken'] = 'Secret token';
 $string['settingspage'] = 'Settings';
 $string['starttime'] = 'Start time';
 $string['status'] = 'Status';

@@ -142,10 +142,6 @@ if ($hassiteconfig) {
             get_string('clientsecret', 'local_stream'), '', ''));
     $settings->hide_if('local_stream/clientsecret', 'local_stream/platform', 'in', '1|2|3');
 
-    $settings->add(new admin_setting_configpasswordunmask('local_stream/secrettoken',
-            get_string('secrettoken', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/secrettoken', 'local_stream/platform', 'in', '1|2|3');
-
     // Embedding.
     $settings->add(new admin_setting_heading('embeddingsettings', get_string('embeddingsettings', 'local_stream'), ''));
 
