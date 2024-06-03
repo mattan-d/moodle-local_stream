@@ -53,6 +53,7 @@ $string['file_extension'] = 'סיומת קובץ';
 $string['file_size'] = 'גודל הקובץ';
 $string['filters'] = 'מסננים';
 $string['has_screen_share'] = 'יש שיתוף מסך';
+$string['hidetopic'] = 'הסתרת נושא';
 $string['host'] = 'מארח';
 $string['indexrecordings'] = 'יומן הקלטות';
 $string['invalid'] = 'שגוי';

@@ -153,8 +153,8 @@ if ($hassiteconfig) {
 
     $settings->add(new admin_setting_configcheckbox('local_stream/hidefromstudents',
             get_string('hidefromstudents'), '', ''));
-    $settings->add(new admin_setting_configcheckbox('local_stream/hidefromstudents',
-            get_string('hidefromstudents'), '', ''));
+    $settings->add(new admin_setting_configcheckbox('local_stream/hidetopic',
+            get_string('hidetopic', 'local_stream'), '', ''));
 
     $options = [
             0 => get_string('above', 'local_stream'), 1 => get_string('below', 'local_stream'),

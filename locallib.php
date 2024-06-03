@@ -844,6 +844,10 @@ class local_stream_help {
             $moduledata->content .= $this->config->streamurl . '/watch/' . $meeting->streamid;
         }
 
+        if ($this->config->hidetopic) {
+            $meeting->topic = '';
+        }
+
         if ($this->config->prefix) {
             $moduledata->name = $this->config->prefix . ' ' . $meeting->topic;
         } else {

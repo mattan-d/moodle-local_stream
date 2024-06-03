@@ -53,6 +53,7 @@ $string['file_extension'] = 'File extension';
 $string['file_size'] = 'File size';
 $string['filters'] = 'Filters';
 $string['has_screen_share'] = 'Has screen share';
+$string['hidetopic'] = 'Hide topic';
 $string['host'] = 'Host';
 $string['indexrecordings'] = 'Index recordings';
 $string['invalid'] = 'Invalid';
