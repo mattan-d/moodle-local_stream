@@ -1,4 +1,3 @@
-<?php
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -15,17 +14,22 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version
+ * init.
  *
- * @package    local_stream
- * @copyright  2023 mattandor <mattan@centricapp.co.il>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package
+ * @category    admin
+ * 2023 CentricApp <support@centricapp.co.il>
+ * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
+define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, notification) {
+    $('#page-local-stream-index .preview-mode').on('click', function(e) {
+        e.preventDefault();
 
-$plugin->component = 'local_stream';
-$plugin->version = 2024060300;
-$plugin->requires = 2014051200;
-$plugin->maturity = MATURITY_STABLE;
-$plugin->release = 'v1.4';
+        var link = $(this).attr('href');
+        link = link.replace('/watch/', '/embed/');
+
+        notification.alert('Preview', '<iframe src="' + link + '" width="100%" height="400px"' +
+            ' frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen sameorigin=""></iframe>');
+    });
+});
