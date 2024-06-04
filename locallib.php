@@ -559,6 +559,11 @@ class local_stream_help {
 
             mtrace('Task: Checking meeting ' . $i . ' out of ' . $totalcount . ' #' . $meeting->id);
 
+            $details = $this->call_unicko_api('meetings/' . $meeting->meeting, null, 'get');
+            if (isset($details) && isset($details->ext_id)) {
+                $meeting->instanceid = $details->ext_id;
+            }
+            
             $i++;
             if ($exists = $DB->get_record('local_stream_rec',
                     ['meetingid' => $meeting->meeting, 'recordingid' => $meeting->id])) {
