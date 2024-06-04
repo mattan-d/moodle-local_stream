@@ -568,17 +568,13 @@ class local_stream_help {
             if ($exists = $DB->get_record('local_stream_rec',
                     ['meetingid' => $meeting->meeting, 'recordingid' => $meeting->id])) {
 
-                if ($exists->status != $this::MEETING_STATUS_READY) {
-                    $exists->starttime = $meeting->start_time;
-                    $exists->endtime = $meeting->end_time;
-                    $exists->meetingdata = json_encode($meeting);
-                    $exists->recordingdata = json_encode($meeting);
+                $exists->starttime = $meeting->start_time;
+                $exists->endtime = $meeting->end_time;
+                $exists->meetingdata = json_encode($meeting);
+                $exists->recordingdata = json_encode($meeting);
 
-                    $DB->update_record('local_stream_rec', $exists);
-                    mtrace('Task: Updating recording #' . $meeting->id . ' details in the db.');
-                } else {
-                    mtrace('Task: Skipping recording #' . $meeting->id . ' was previously saved and exists in the db.');
-                }
+                $DB->update_record('local_stream_rec', $exists);
+                mtrace('Task: Updating recording #' . $meeting->id . ' details in the db.');
 
                 continue;
             }
