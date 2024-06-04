@@ -92,7 +92,16 @@ class embed extends \core\task\scheduled_task {
                 if (isset($recordingdata->instanceid) && $recordingdata->instanceid) {
                     $platform = $DB->get_record('course_modules',
                             ['instance' => $recordingdata->instanceid, 'module' => $module->id]);
-                    $platform->id = $recordingdata->instanceid;
+
+                    if ($platform && isset($platform->course)) {
+                        $platform->id = $recordingdata->instanceid;
+                    } else {
+                        $meeting->embedded = 2;
+                        $DB->update_record('local_stream_rec', $meeting);
+
+                        mtrace('The video with ID #' . $meeting->id . ' not found in course #' . $meeting->course . '.');
+                        continue;
+                    }
                 }
             }
 
