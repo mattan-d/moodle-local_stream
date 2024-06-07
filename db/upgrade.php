@@ -15,17 +15,36 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version
+ * local_stream upgrade
  *
  * @package    local_stream
  * @copyright  2023 mattandor <mattan@centricapp.co.il>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
+defined('MOODLE_INTERNAL') || die;
 
-$plugin->component = 'local_stream';
-$plugin->version = 2024060700;
-$plugin->requires = 2014051200;
-$plugin->maturity = MATURITY_STABLE;
-$plugin->release = 'v1.4';
+/**
+ * Runs the upgrade between versions.
+ *
+ * @param int $oldversion Version we are starting from.
+ * @return bool    True on success, false on failure.
+ */
+function xmldb_local_stream_upgrade($oldversion) {
+    global $CFG, $DB;
+
+    $dbman = $DB->get_manager();
+
+    if ($oldversion < 2024060700) {
+        $table = new xmldb_table('local_stream_rec');
+        $field = new xmldb_field('email', XMLDB_TYPE_CHAR, '64', null, null, null, null);
+
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->change_field_notnull($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2024060700, 'local', 'stream');
+    }
+
+    return true;
+}
