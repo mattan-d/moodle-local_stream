@@ -1418,7 +1418,7 @@ class local_stream_help {
         $url = $this->config->streamurl . '/webservice/api/v1';
 
         $headers = [
-                'Authorization: Bearer ' . $config->accountid,
+                'Authorization: Bearer ' . $this->config->streamkey,
                 'Accept: application/json',
         ];
 
