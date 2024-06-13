@@ -83,6 +83,10 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_configselect('local_stream/daystolisting',
             get_string('daystolisting', 'local_stream'), '', 0, $options));
 
+    $options[0] = get_string('none');
+    $settings->add(new admin_setting_configselect('local_stream/daystocleanup',
+            get_string('daystocleanup', 'local_stream'), get_string('daystocleanup_desc', 'local_stream'), 0, $options));
+
     $settings->add(new admin_setting_heading('local_stream/platformsettings',
             get_string('platform_settings', 'local_stream'), ''));
 

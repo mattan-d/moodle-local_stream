@@ -34,6 +34,8 @@ $string['clientsecret'] = 'סוד לקוח';
 $string['course'] = 'שם הקורס';
 $string['coursedashboard'] = 'ההקלטות שלי';
 $string['dashboard'] = 'לוח ההקלטות';
+$string['daystocleanup'] = 'ניקוי מקור ישן יותר מ';
+$string['daystocleanup_desc'] = 'שימו לב: הפעלת תכונה זו היא באחריותו הבלעדית של הלקוח.';
 $string['daystolisting'] = 'ימים לסנכרון';
 $string['deleterecordings'] = 'מחיקת הקלטות';
 $string['department'] = 'מחלקה';
@@ -79,7 +81,6 @@ $string['privacy:metadata:stream'] =
         'על מנת להשתלב עם שירות Stream מרוחק, יש להחליף נתוני משתמש עם השירות הזה';
 $string['privacy:metadata:stream:email'] = 'האימייל נשלח ממודל כדי לאפשר לך לגשת לנתונים שלך בשרת Stream.';
 $string['privacy:metadata:stream:fullname'] = 'שמך המלא נשלח למערכת המרוחקת כדי לאפשר חווית משתמש טובה יותר';
-
 $string['progress'] = 'בתהליך';
 $string['recording'] = 'הקלטה';
 $string['recording_type'] = 'סוג הקלטה';

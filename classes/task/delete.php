@@ -63,6 +63,29 @@ class delete extends \core\task\scheduled_task {
             $DB->update_record('local_stream_rec', $meeting);
         }
 
+        // Unicko.
+        if ($help->config->platform == $help::PLATFORM_UNICKO && $help->config->daystocleanup > 0) {
+
+            // Calculate the timestamp for days ago.
+            $daysago = time() - ($help->config->daystocleanup * 24 * 60 * 60);
+            $meetings = $DB->get_records_select('local_stream_rec',
+                    'status = ' . $help::MEETING_STATUS_READY . ' AND timecreated < ' . $daysago);
+
+            if ($meetings) {
+                mtrace('Total videos to be deleted: ' . count($meetings));
+            } else {
+                mtrace('No videos older than ' . $help->config->daystocleanup . ' days found.');
+            }
+
+            foreach ($meetings as $meeting) {
+                if (isset($meeting->recordingid)) {
+                    $delete = $help->call_unicko_api('recordings/' . $meeting->recordingid, null, 'delete');
+                    mtrace('The video with ID #' . $meeting->id . ' deleted successfully.');
+                }
+            }
+
+        }
+
         return true;
     }
 }
