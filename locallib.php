@@ -723,6 +723,7 @@ class local_stream_help {
                                 'put', true);
             }
 
+            $meeting->streamid = 0;
             $meeting->status = 0;
             $meeting->embedded = 0;
             $meeting->tries = 0;
