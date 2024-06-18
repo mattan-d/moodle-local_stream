@@ -718,6 +718,14 @@ class local_stream_help {
                 $recover =
                         $this->call_zoom_api('meetings/' . $meeting->meetingid . '/recordings/status', ['action' => 'recover'],
                                 'put', true);
+            } else if ($this->config->platform == $this::PLATFORM_UNICKO) {
+                $recover = $this->call_unicko_api('meetings/' . $meeting->meeting, null, 'get');
+                if (isset($recover) && isset($recover->ext_id)) {
+                    $meeting->instanceid = $recover->ext_id;
+                }
+
+                $meeting->meetingdata = json_encode($meeting);
+                $meeting->recordingdata = json_encode($meeting);
             }
 
             $meeting->streamid = 0;
