@@ -93,58 +93,45 @@ if ($hassiteconfig) {
     // UNICKO.
     $settings->add(new admin_setting_configtext('local_stream/unickokey',
             get_string('clientid', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/unickokey', 'local_stream/platform', 'in', '0|1|2');
 
     $settings->add(new admin_setting_configpasswordunmask('local_stream/unickosecret',
             get_string('clientsecret', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/unickosecret', 'local_stream/platform', 'in', '0|1|2');
 
     // TEAMS.
     $settings->add(new admin_setting_configtext('local_stream/teamsclientsecret',
             get_string('clientsecret', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/teamsclientsecret', 'local_stream/platform', 'in', '0|1|3');
 
     $settings->add(new admin_setting_configtext('local_stream/teamsclientid',
             get_string('clientid', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/teamsclientid', 'local_stream/platform', 'in', '0|1|3');
 
     $settings->add(new admin_setting_configtext('local_stream/teamstenantid',
             get_string('tenantid', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/teamstenantid', 'local_stream/platform', 'in', '0|1|3');
 
     $settings->add(new admin_setting_configtextarea('local_stream/teamsusersfilter',
             get_string('teamsusersfilter', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/teamsusersfilter', 'local_stream/platform', 'in', '0|1|3');
 
     // WEBEX.
     $settings->add(new admin_setting_configtext('local_stream/webexjwt',
             get_string('webexjwt', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/webexjwt', 'local_stream/platform', 'in', '0|2|3');
 
     $settings->add(new admin_setting_configtext('local_stream/webexrefreshtoken',
             get_string('secrettoken', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/webexrefreshtoken', 'local_stream/platform', 'in', '0|2|3');
 
     $settings->add(new admin_setting_configtext('local_stream/webexclientid',
             get_string('clientid', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/webexclientid', 'local_stream/platform', 'in', '0|2|3');
 
     $settings->add(new admin_setting_configtext('local_stream/webexclientsecret',
             get_string('clientsecret', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/webexclientsecret', 'local_stream/platform', 'in', '0|2|3');
 
     // ZOOM.
     $settings->add(new admin_setting_configtext('local_stream/accountid',
             get_string('accountid', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/accountid', 'local_stream/platform', 'in', '1|2|3');
 
     $settings->add(new admin_setting_configtext('local_stream/clientid',
             get_string('clientid', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/clientid', 'local_stream/platform', 'in', '1|2|3');
 
     $settings->add(new admin_setting_configpasswordunmask('local_stream/clientsecret',
             get_string('clientsecret', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/clientsecret', 'local_stream/platform', 'in', '1|2|3');
 
     // Embedding.
     $settings->add(new admin_setting_heading('embeddingsettings', get_string('embeddingsettings', 'local_stream'), ''));
@@ -153,7 +140,6 @@ if ($hassiteconfig) {
             get_string('prefix', 'local_stream'), get_string('prefix_desc', 'local_stream'), ''));
     $settings->add(new admin_setting_configcheckbox('local_stream/adddate',
             get_string('adddate', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/nodownload', 'local_stream/platform', 'in', '0|2');
 
     $settings->add(new admin_setting_configcheckbox('local_stream/hidefromstudents',
             get_string('hidefromstudents'), '', ''));

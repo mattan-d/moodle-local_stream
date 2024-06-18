@@ -1,4 +1,4 @@
-name: Moodle 4.01 Plugin CI
+name: Moodle 3.5 Plugin CI
 
 on: [ push, pull_request ]
 
@@ -30,8 +30,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: [ '7.4', '8.0', '8.1' ]
-        moodle-branch: [ 'MOODLE_401_STABLE' ]
+        php: [ '7.4' ]
+        moodle-branch: [ 'MOODLE_35_STABLE' ]
         database: [ pgsql, mariadb ]
 
     steps:

@@ -56,7 +56,6 @@ $PAGE->set_url($baseurl);
 $PAGE->set_title($strtitle);
 $PAGE->set_heading($strtitle);
 $PAGE->set_pagelayout('admin');
-$PAGE->requires->js_call_amd('local_stream/init');
 
 $help->hooks($baseurl);
 
