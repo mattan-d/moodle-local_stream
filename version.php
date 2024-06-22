@@ -29,6 +29,6 @@ $plugin->version = 2024062200;
 $plugin->requires = 2014051200;
 $plugin->maturity = MATURITY_STABLE;
 $plugin->release = 'v1.7';
-$plugin->dependencies = array(
-        'mod_stream' => 2024060800
-);
+$plugin->dependencies = [
+        'mod_stream' => 2024060800,
+];
