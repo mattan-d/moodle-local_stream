@@ -627,7 +627,7 @@ class local_stream_help {
         $meeting = $DB->get_record('local_stream_rec',
                 ['id' => $id]);
 
-        $cm = get_coursemodule_from_instance('page', $meeting->moduleid);
+        $cm = get_coursemodule_from_instance('stream', $meeting->moduleid);
 
         if ($meeting) {
             if ($status) {
@@ -881,7 +881,7 @@ class local_stream_help {
         global $DB;
 
         if ($meeting->moduleid) {
-            $cm = get_coursemodule_from_instance('page', $meeting->moduleid);
+            $cm = get_coursemodule_from_instance('stream', $meeting->moduleid);
             $page = $DB->get_record('page', ['id' => $meeting->moduleid]);
 
             if ($this->config->prefix) {
