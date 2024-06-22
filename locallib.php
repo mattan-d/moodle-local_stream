@@ -813,13 +813,13 @@ class local_stream_help {
 
         $moduledata = new \stdClass();
         $moduledata->course = $meeting->course;
-        $moduledata->modulename = 'page';
+        $moduledata->modulename = 'stream';
         $moduledata->section = 0;
         $moduledata->idnumber = $meeting->idnumber;
         $moduledata->visible = ($this->config->hidefromstudents ? 0 : 1);
         $moduledata->contentformat = FORMAT_HTML;
         $moduledata->introeditor = [
-                'text' => true,
+                'text' => '',
                 'format' => true,
         ];
 
@@ -837,18 +837,17 @@ class local_stream_help {
                 $recordingurl = '<a target="_blank" href="' . $recordingdata->play_url . '">לחץ/י כאן לצפייה בהקלטה</a>';
             }
 
-            $moduledata->content .= $recordingurl;
+            $moduledata->introeditor['text'] .= $recordingurl;
 
             // Teams using onedrive url to display video without download.
             if ($this->config->platform == $this::PLATFORM_TEAMS) {
                 $recordingurl = $this->get_meeting($meeting);
                 $recordingurl = $recordingurl . '?web=1&csf=1';
-                $moduledata->content .= '<a href="' . $recordingurl . '">לחץ/י כאן לצפיה ישירה בהקלטה</a>';
+                $moduledata->introeditor['text'] .= '<a href="' . $recordingurl . '">לחץ/י כאן לצפיה ישירה בהקלטה</a>';
             }
 
         } else {
-            $moduledata->content = 'This video was recorded by ' . $meeting->email . ' <hr> ';
-            $moduledata->content .= $this->config->streamurl . '/watch/' . $meeting->streamid;
+            $moduledata->identifier = $meeting->streamid;
         }
 
         if ($this->config->hidetopic) {
@@ -864,6 +863,8 @@ class local_stream_help {
         if ($this->config->adddate) {
             $moduledata->name .= ' (' . userdate(strtotime($meeting->starttime)) . ')';
         }
+
+        $moduledata->topic = $meeting->topic;
 
         return create_module($moduledata);
     }
@@ -1120,12 +1121,10 @@ class local_stream_help {
         $output = [];
         $output[0] = '';
         foreach ($courses as $course) {
-            if (!isset($course->fullname)) {
-                $course = $DB->get_record('course', ['id' => $course->course], 'id ,fullname');
-            }
-
-            if ($course->fullname) {
+            if (isset($course->fullname) && $course->fullname) {
                 $output[$course->id] = $course->fullname;
+            } else {
+                $course = $DB->get_record('course', ['id' => $course->course], 'id ,fullname');
             }
         }
 
