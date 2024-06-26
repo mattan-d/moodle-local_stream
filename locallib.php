@@ -1050,7 +1050,7 @@ class local_stream_help {
         }
 
         if (isset($params['course']) && $params['course']) {
-            $sql .= ' AND ' . $DB->sql_equal('course', ':course', false, false);
+            $sql .= ' AND ' . $DB->sql_equal('course', ':course', true, false);
         }
 
         if (isset($params['duration']) && $params['duration']) {
@@ -1076,7 +1076,6 @@ class local_stream_help {
      * Otherwise, only the courses that the user is enrolled in are returned.
      * The results are cached to improve performance.
      *
-     * @param bool $all Whether to retrieve all courses or only the user's courses.
      * @return array An array of course IDs and their full names.
      */
     public function get_courses() {
