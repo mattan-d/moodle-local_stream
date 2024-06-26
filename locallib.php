@@ -949,7 +949,7 @@ class local_stream_help {
 
         $courseid = optional_param('course', 0, PARAM_INT);
         if (!isset($courseids)) {
-            $courseids = [];
+            $courseids = [0];
 
             if ($courseid) {
                 $courseids[] = $courseid;
@@ -1006,7 +1006,7 @@ class local_stream_help {
      * @return int|array Returns the count of meetings or an array of meeting data.
      */
     public function get_meetings($params, $count = false, $page = 0) {
-        global $DB, $CFG;
+        global $DB;
 
         static $data;
 
@@ -1019,6 +1019,7 @@ class local_stream_help {
 
         // Filter for students only.
         if (!$this->has_capability_to_edit()) {
+
             $sql .= ' AND course IN (' . implode(',', $this->get_user_my_courses()) . ')';
             unset($params['email']);
             $params['visible'] = 1;
