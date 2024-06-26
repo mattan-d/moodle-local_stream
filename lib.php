@@ -195,12 +195,12 @@ class local_stream_embed_form extends moodleform {
         $mform->addElement('static', 'topic', get_string('topic', 'local_stream'), ['size' => 120]);
         $mform->addElement('static', 'duration', get_string('duration', 'local_stream'), ['size' => 120]);
 
-        if ($mform->participant) {
+        if (isset($mform->participant) && $mform->participant) {
             $mform->addElement('static', 'participants', get_string('participants', 'local_stream'),
                     ['size' => 120]);
         }
 
-        $courses = $help->get_courses(true);
+        $courses = $help->get_courses();
         $options = [
                 'multiple' => false,
         ];

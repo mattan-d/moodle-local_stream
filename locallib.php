@@ -1037,16 +1037,16 @@ class local_stream_help {
         }
 
         if (isset($params['meetingid']) && $params['meetingid']) {
-            $sql .= ' AND ' . $DB->sql_like('meetingid', ':meetingid', false, false);
+            $sql .= ' AND ' . $DB->sql_like($DB->sql_cast_to_char('meetingid'), ':meetingid', false, false);
         }
 
         if (isset($params['email']) && $params['email']) {
-            $sql .= ' AND ' . $DB->sql_equal('email', ':email', false, false);
+            $sql .= ' AND ' . $DB->sql_equal('email', ':email', true, false);
         }
 
         if (isset($params['visible']) && $params['visible']) {
             $params['visible'] = ($params['visible'] == 2 ? 0 : 1);
-            $sql .= ' AND ' . $DB->sql_equal('visible', ':visible', false, false);
+            $sql .= ' AND ' . $DB->sql_equal('visible', ':visible', true, false);
         }
 
         if (isset($params['course']) && $params['course']) {
@@ -1079,43 +1079,31 @@ class local_stream_help {
      * @param bool $all Whether to retrieve all courses or only the user's courses.
      * @return array An array of course IDs and their full names.
      */
-    public function get_courses($all = false) {
-        global $DB;
-
-        if ($all && is_siteadmin()) {
-            $cache = $this->cache->get('admin_courses_list');
-            if ($cache) {
-                $output = $cache;
-            } else {
-                $courses = get_courses();
-                $output = [];
-                foreach ($courses as $course) {
-                    if ($course->fullname) {
-                        $output[$course->id] = $course->fullname;
-                    }
-                }
-
-                $output = $this->cache->set('admin_courses_list', $output);
-            }
-
-            return $output;
-        }
+    public function get_courses() {
+        global $USER;
 
         $courseid = optional_param('course', 0, PARAM_INT);
 
+        // Attempt to get the courses from cache.
         if (is_siteadmin()) {
             $cache = $this->cache->get('admin_courses');
             if ($cache) {
                 $courses = $cache;
             } else {
-                $courses =
-                        $DB->get_records('local_stream_rec', ['status' => $this::MEETING_STATUS_READY], null,
-                                'course');
-
-                $courses = $this->cache->set('admin_courses', $courses);
+                $courses = get_courses();
+                // Cache the fetched courses for admin.
+                $this->cache->set('admin_courses', $courses);
             }
         } else {
-            $courses = enrol_get_my_courses();
+            $cache = $this->cache->get('user_courses_' . $USER->id);
+            if ($cache) {
+                $courses = $cache;
+            } else {
+                $courses = enrol_get_my_courses();
+
+                // Cache the fetched courses for the user.
+                $this->cache->set('user_courses_' . $USER->id, $courses);
+            }
         }
 
         $output = [];
@@ -1123,8 +1111,6 @@ class local_stream_help {
         foreach ($courses as $course) {
             if (isset($course->fullname) && $course->fullname) {
                 $output[$course->id] = $course->fullname;
-            } else {
-                $course = $DB->get_record('course', ['id' => $course->course], 'id ,fullname');
             }
         }
 
