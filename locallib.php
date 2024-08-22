@@ -387,8 +387,6 @@ class local_stream_help {
         foreach ($meetings as $meeting) {
 
             mtrace('Task: Checking meeting ' . $i . ' out of ' . $totalcount . ' #' . $meeting->id);
-            mtrace('JSON', json_encode($meeting));
-
             $i++;
 
             if (!$meeting->has_recording) {
@@ -398,7 +396,6 @@ class local_stream_help {
             $recordingsinstances =
                     $this->call_zoom_api('/meetings/' . $this->encode_uuid($meeting->uuid) . '/recordings');
 
-            mtrace('JSON', json_encode($recordingsinstances));
             if (!isset($recordingsinstances->recording_files)) {
                 continue;
             }
