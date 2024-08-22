@@ -398,6 +398,7 @@ class local_stream_help {
             $recordingsinstances =
                     $this->call_zoom_api('/meetings/' . $this->encode_uuid($meeting->uuid) . '/recordings');
 
+            mtrace('JSON', json_encode($recordingsinstances));
             if (!isset($recordingsinstances->recording_files)) {
                 continue;
             }
