@@ -981,7 +981,10 @@ class local_stream_help {
             $options[0] = '';
             $meetings = $DB->get_records('local_stream_rec', [], 'email DESC', 'id, email');
             foreach ($meetings as $meeting) {
-                $user = $DB->get_record('user', ['email' => $meeting->email]);
+
+                $likeemail = $DB->sql_like('email', ':email', false, false);
+                $user = $DB->get_records_sql("SELECT * FROM {user} WHERE {$likeemail}", ['email' => $meeting->email]);
+
                 if ($user) {
                     $options[$meeting->email] = fullname($user);
                 } else {
