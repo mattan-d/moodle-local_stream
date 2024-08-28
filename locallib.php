@@ -592,6 +592,24 @@ class local_stream_help {
             $newrecording->timecreated = time();
             $newrecording->visible = ($this->config->hidefromstudents ? 0 : 1);
 
+            $module = $DB->get_record('modules', ['name' => 'lti']);
+            if ($module && isset($meeting->instanceid)) {
+                $cm = $DB->get_record('course_modules',
+                        ['instance' => $meeting->instanceid, 'module' => $module->id]);
+
+                if ($cm && isset($cm->course)) {
+                    // Get the context of the course.
+                    $context = context_course::instance($cm->course);
+                    $teachers = get_role_users(3, $context); // 3 is the default role ID for teachers.
+
+                    if (!empty($teachers)) {
+                        foreach ($teachers as $teacher) {
+                            $newrecording->email = $teacher->email; // Return the first teacher's user ID.
+                        }
+                    }
+                }
+            }
+
             // Publish immediately.
             if ($this->config->storage == $this::STORAGE_NODOWNLOAD) {
                 $newrecording->status = $this::MEETING_STATUS_READY;
