@@ -257,3 +257,95 @@ function local_stream_inplace_editable($itemtype, $itemid, $newvalue) {
             get_string('sectionheadingedit', 'quiz', format_string($newvalue))
     );
 }
+
+/**
+ * Extend the Moodle navigation menu for Stream.
+ *
+ * This function is called by Moodle to extend the navigation menu and add Stream dashboard.
+ *
+ * @param navigation_node $navigation The navigation tree to extend.
+ *
+ * @return void
+ */
+function local_stream_extend_navigation($navigation) {
+    global $USER, $PAGE, $DB;
+
+    if (empty($USER->id)) {
+        return;
+    }
+
+    // Check the current page context.  If the context is not of a course or module then we are in another area of Moodle and return void.
+    $context = context::instance_by_id($PAGE->context->id);
+    $isvalidcontext =
+            ($context instanceof context_course || $context instanceof context_module || $context instanceof context_user) ? true :
+                    false;
+    if (!$isvalidcontext) {
+        return;
+    }
+
+    // If the context if a module then get the parent context.
+    $coursecontext = null;
+    if ($context instanceof context_module) {
+        $coursecontext = $context->get_course_context();
+    } else if ($context instanceof context_course) {
+        $coursecontext = $context;
+    }
+
+    if (!has_capability('local/stream:view', context_system::instance())) {
+        return;
+    }
+
+    $label = get_string('coursedashboard', 'local_stream');
+    $icon = new pix_icon('icon', $label, 'local_stream');
+
+    if (isset($coursecontext->id) && $coursecontext->id) {
+        $link = new moodle_url('/local/stream', ['course' => $coursecontext->instanceid]);
+    } else {
+        $link = new moodle_url('/local/stream');
+
+        $nodehome = $navigation->get('home');
+        if (isnodeempty($nodehome)) {
+            $nodehome->add($label, $link, navigation_node::NODETYPE_LEAF, $label, 'stream-home', $icon);
+            $nodehome->showinflatnavigation = true;
+        }
+    }
+
+    $currentcoursenode = $navigation->find('currentcourse', $navigation::TYPE_ROOTNODE);
+    if (isnodeempty($currentcoursenode)) {
+        // we have a 'current course' node, add the link to it.
+        $currentcoursenode->add($label, $link, navigation_node::NODETYPE_LEAF, $label, 'stream-currentcourse', $icon);
+    }
+
+    $mycoursesnode = $navigation->find('mycourses', $navigation::TYPE_ROOTNODE);
+    if (isnodeempty($mycoursesnode)) {
+        $currentcourseinmycourses = $mycoursesnode->find($coursecontext->instanceid, navigation_node::TYPE_COURSE);
+        if ($currentcourseinmycourses) {
+            // we found the current course in 'my courses' node, add the link to it.
+            $currentcourseinmycourses->add($label, $link, navigation_node::NODETYPE_LEAF, $label,
+                    'stream-mycourses', $icon);
+        }
+    }
+
+    $coursesnode = $navigation->find('courses', $navigation::TYPE_ROOTNODE);
+    if (isnodeempty($coursesnode)) {
+        $currentcourseincourses = $coursesnode->find($coursecontext->instanceid, navigation_node::TYPE_COURSE);
+        if ($currentcourseincourses) {
+            // we found the current course in the 'courses' node, add the link to it.
+            $currentcourseincourses->add($label, $link, navigation_node::NODETYPE_LEAF, $label,
+                    'stream-allcourses', $icon);
+        }
+    }
+}
+
+/**
+ * Check if a navigation node is not empty.
+ *
+ * This function checks if the provided navigation node is not false and has children.
+ *
+ * @param navigation_node|false $node The navigation node to check.
+ *
+ * @return bool Returns true if the node is not false and has children, otherwise false.
+ */
+function isnodeempty(navigation_node $node) {
+    return $node !== false && $node->has_children();
+}
