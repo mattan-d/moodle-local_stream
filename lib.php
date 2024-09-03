@@ -346,6 +346,6 @@ function local_stream_extend_navigation($navigation) {
  *
  * @return bool Returns true if the node is not false and has children, otherwise false.
  */
-function isnodeempty(navigation_node $node) {
+function isnodeempty($node) {
     return $node !== false && $node->has_children();
 }
