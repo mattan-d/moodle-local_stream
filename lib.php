@@ -274,7 +274,7 @@ function local_stream_extend_navigation($navigation) {
         return;
     }
 
-    // Check the current page context.  If the context is not of a course or module then we are in another area of Moodle and return void.
+    // Check the current page context.
     $context = context::instance_by_id($PAGE->context->id);
     $isvalidcontext =
             ($context instanceof context_course || $context instanceof context_module || $context instanceof context_user) ? true :
@@ -312,7 +312,7 @@ function local_stream_extend_navigation($navigation) {
 
     $currentcoursenode = $navigation->find('currentcourse', $navigation::TYPE_ROOTNODE);
     if (isnodeempty($currentcoursenode)) {
-        // we have a 'current course' node, add the link to it.
+        // We have a 'current course' node, add the link to it.
         $currentcoursenode->add($label, $link, navigation_node::NODETYPE_LEAF, $label, 'stream-currentcourse', $icon);
     }
 
@@ -320,7 +320,7 @@ function local_stream_extend_navigation($navigation) {
     if (isnodeempty($mycoursesnode)) {
         $currentcourseinmycourses = $mycoursesnode->find($coursecontext->instanceid, navigation_node::TYPE_COURSE);
         if ($currentcourseinmycourses) {
-            // we found the current course in 'my courses' node, add the link to it.
+            // We found the current course in 'my courses' node, add the link to it.
             $currentcourseinmycourses->add($label, $link, navigation_node::NODETYPE_LEAF, $label,
                     'stream-mycourses', $icon);
         }
@@ -330,7 +330,7 @@ function local_stream_extend_navigation($navigation) {
     if (isnodeempty($coursesnode)) {
         $currentcourseincourses = $coursesnode->find($coursecontext->instanceid, navigation_node::TYPE_COURSE);
         if ($currentcourseincourses) {
-            // we found the current course in the 'courses' node, add the link to it.
+            // We found the current course in the 'courses' node, add the link to it.
             $currentcourseincourses->add($label, $link, navigation_node::NODETYPE_LEAF, $label,
                     'stream-allcourses', $icon);
         }
