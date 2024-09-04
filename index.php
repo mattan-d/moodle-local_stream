@@ -165,22 +165,22 @@ if ($help->has_capability_to_edit()) {
             ];
 }
 
-$icons = [
-        'progressbar' => new pix_icon('i/progressbar', get_string('progress', 'local_stream')),
-        'preview' => new pix_icon('t/preview', get_string('preview'), 'moodle', ['class' => 'mr-2']),
-        'hide' => new pix_icon('t/hide', get_string('hide'), 'moodle', ['class' => 'mr-2']),
-        'show' => new pix_icon('t/show', get_string('show'), 'moodle', ['class' => 'mr-2']),
-        'course' => new pix_icon('i/course', get_string('course'), 'moodle', ['class' => 'mr-2']),
-        'delete' => new pix_icon('t/delete', get_string('delete'), 'moodle', ['class' => 'mr-2']),
-        'restore' => new pix_icon('t/restore', get_string('restore'), 'moodle', ['class' => 'mr-2']),
-        'download' => new pix_icon('t/download', get_string('download'), 'moodle', ['class' => 'mr-2']),
-        'warning' => new pix_icon('i/warning', get_string('warning')),
-        'invalid' => new pix_icon('i/invalid', get_string('invalid', 'local_stream')),
-        'valid' => new pix_icon('i/valid', get_string('valid', 'local_stream')),
-        'risk_dataloss' => new pix_icon('i/risk_dataloss', get_string('delete')),
-];
-
 foreach ($data as $row) {
+
+    $icons = [
+            'progressbar' => new pix_icon('i/progressbar', get_string('progress', 'local_stream')),
+            'preview' => new pix_icon('t/preview', get_string('preview'), 'moodle', ['class' => 'mr-2']),
+            'hide' => new pix_icon('t/hide', get_string('hide'), 'moodle', ['class' => 'mr-2']),
+            'show' => new pix_icon('t/show', get_string('show'), 'moodle', ['class' => 'mr-2']),
+            'course' => new pix_icon('i/course', get_string('course'), 'moodle', ['class' => 'mr-2']),
+            'delete' => new pix_icon('t/delete', get_string('delete'), 'moodle', ['class' => 'mr-2']),
+            'restore' => new pix_icon('t/restore', get_string('restore'), 'moodle', ['class' => 'mr-2']),
+            'download' => new pix_icon('t/download', get_string('download'), 'moodle', ['class' => 'mr-2']),
+            'warning' => new pix_icon('i/warning', get_string('warning')),
+            'invalid' => new pix_icon('i/invalid', get_string('invalid', 'local_stream')),
+            'valid' => new pix_icon('i/valid', get_string('valid', 'local_stream')),
+            'risk_dataloss' => new pix_icon('i/risk_dataloss', get_string('delete')),
+    ];
 
     $file = new stdClass();
     $file->id = $row['id'];
