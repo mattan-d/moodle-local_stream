@@ -25,10 +25,10 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_stream';
-$plugin->version = 2024090500;
+$plugin->version = 2024091800;
 $plugin->requires = 2014051200;
 $plugin->maturity = MATURITY_STABLE;
-$plugin->release = 'v2.2';
+$plugin->release = 'v2.4';
 $plugin->dependencies = [
         'mod_stream' => 2024060700,
 ];

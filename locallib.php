@@ -1475,4 +1475,47 @@ class local_stream_help {
 
         return json_encode($tree);
     }
+
+    /**
+     * Fetches the sesskey for the current logged-in user and redirects them to the Stream URL.
+     *
+     * This method sends the user's information via a POST request to the Stream API
+     * to retrieve a sesskey. If the sesskey is valid, the user is redirected to the
+     * configured Stream URL with the sesskey as a parameter. Otherwise, a coding exception
+     * is thrown.
+     *
+     * @throws coding_exception If the sesskey is not valid.
+     * @global \stdClass $USER The global object representing the currently logged-in user.
+     *
+     * @global \moodle_database $DB The global Moodle database object.
+     */
+    public function stream_login() {
+        global $DB, $USER;
+
+        $url = $this->config->streamurl . '/webservice/api/v4';
+        $headers = [
+                'Authorization: Bearer ' . $this->config->streamkey,
+                'Accept: application/json',
+        ];
+
+        $options = [
+                'CURLOPT_POST' => true,
+                'CURLOPT_RETURNTRANSFER' => true,
+                'CURLOPT_HTTP_VERSION' => CURL_HTTP_VERSION_1_1,
+                'CURLOPT_HTTPHEADER' => $headers,
+        ];
+
+        $user = $DB->get_record('user', ['id' => $USER->id]);
+        $user = (array) $user;
+
+        $curl = new \curl();
+        $response = $curl->post($url, $user, $options);
+        $response = json_decode($response);
+
+        if ($response->sesskey) {
+            redirect(new moodle_url($this->config->streamurl, ['sesskey' => $response->sesskey]));
+        } else {
+            throw new coding_exception('sesskey not valid.');
+        }
+    }
 }
