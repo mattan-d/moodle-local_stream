@@ -1485,9 +1485,6 @@ class local_stream_help {
      * is thrown.
      *
      * @throws coding_exception If the sesskey is not valid.
-     * @global \stdClass $USER The global object representing the currently logged-in user.
-     *
-     * @global \moodle_database $DB The global Moodle database object.
      */
     public function stream_login() {
         global $DB, $USER;
