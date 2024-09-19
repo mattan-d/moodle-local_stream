@@ -28,7 +28,7 @@ $plugin->component = 'local_stream';
 $plugin->version = 2024091800;
 $plugin->requires = 2014051200;
 $plugin->maturity = MATURITY_STABLE;
-$plugin->release = 'v2.4';
+$plugin->release = 'v2.5';
 $plugin->dependencies = [
         'mod_stream' => 2024060700,
 ];
