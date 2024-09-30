@@ -80,7 +80,11 @@ class listing extends \core\task\scheduled_task {
                 if ($help->config->platform == $help::PLATFORM_ZOOM) { // Zoom.
                     $data->page = 1;
                     $data->size = 300;
-                    $data->type = 'past';
+
+                    $options = ['past', 'pastOne'];
+                    $randomkey = array_rand($options);
+
+                    $data->type = $options[$randomkey];
                     $help->listing_zoom($data);
                 } else if ($help->config->platform == $help::PLATFORM_WEBEX) { // Webex.
                     $data->from = $data->from . 'T00:00:00';
