@@ -1510,7 +1510,7 @@ class local_stream_help {
         $response = json_decode($response);
 
         if ($response->sesskey) {
-            new moodle_url($this->config->streamurl, ['sesskey' => $response->sesskey, 'redirect' => $redirect]);
+            redirect($this->config->streamurl, ['sesskey' => $response->sesskey, 'redirect' => $redirect]);
         } else {
             throw new coding_exception('sesskey not valid.');
         }
