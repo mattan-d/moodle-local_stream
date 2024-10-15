@@ -1486,7 +1486,7 @@ class local_stream_help {
      *
      * @throws coding_exception If the sesskey is not valid.
      */
-    public function stream_login() {
+    public function stream_login($redirect = false) {
         global $DB, $USER;
 
         $url = $this->config->streamurl . '/webservice/api/v4';
@@ -1510,7 +1510,11 @@ class local_stream_help {
         $response = json_decode($response);
 
         if ($response->sesskey) {
-            redirect(new moodle_url($this->config->streamurl, ['sesskey' => $response->sesskey]));
+            if(!$redirect) {
+                redirect(new moodle_url($this->config->streamurl, ['sesskey' => $response->sesskey]));
+            } else {
+                redirect($redirect);
+            }
         } else {
             throw new coding_exception('sesskey not valid.');
         }

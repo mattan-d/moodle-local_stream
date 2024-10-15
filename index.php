@@ -32,6 +32,7 @@ require_login();
 $page = optional_param('page', 0, PARAM_INT);
 $courseid = optional_param('course', null, PARAM_INT);
 $action = optional_param('action', null, PARAM_TEXT);
+$redirect = optional_param('redirect', null, PARAM_TEXT);
 
 $context = context_system::instance();
 $PAGE->set_context($context);
@@ -41,7 +42,7 @@ require_capability('local/stream:manage', $context);
 $help = new local_stream_help();
 
 if ($action == 'sso') {
-    $help->stream_login();
+    $help->stream_login($redirect);
 }
 
 if ($courseid) {
