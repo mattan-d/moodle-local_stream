@@ -1484,6 +1484,8 @@ class local_stream_help {
      * configured Stream URL with the sesskey as a parameter. Otherwise, a coding exception
      * is thrown.
      *
+     * @param string $redirect The redirect URL.
+     *
      * @throws coding_exception If the sesskey is not valid.
      */
     public function stream_login($redirect = '') {
