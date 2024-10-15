@@ -100,6 +100,7 @@ $string['stream:edit'] = 'Edit recordings';
 $string['stream:manage'] = 'Manage and view meetings';
 $string['stream:view'] = 'View recordings';
 $string['streamcategoryid'] = 'Stream category ID';
+$string['streamdashboard'] = 'Open Stream Dashboard';
 $string['streamkey'] = 'Stream key';
 $string['streamkey_desc'] = 'To obtain the key, please <a href="https://stream-platform.cloud/" target="_blank">visit here</a>.';
 $string['streamurl'] = 'Stream URL';
