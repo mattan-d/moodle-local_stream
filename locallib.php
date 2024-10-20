@@ -1040,9 +1040,7 @@ class local_stream_help {
 
         // Filter for students only.
         if (!$this->has_capability_to_edit()) {
-
             $sql .= ' AND course IN (' . implode(',', $this->get_user_my_courses()) . ')';
-            unset($params['email']);
             $params['visible'] = 1;
         }
 
