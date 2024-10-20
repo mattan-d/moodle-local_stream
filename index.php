@@ -128,6 +128,7 @@ if (!is_siteadmin($USER)) {
     $user = $DB->get_record('user', ['id' => $USER->id]);
     if ($user) {
         $basefilter['email'] = $user->email;
+        $SESSION->meetings_filtering['email'] = $user->email;
         $data = $help->get_meetings($basefilter, false, $page);
         $recordingscount = $help->get_meetings($basefilter, true);
     }
