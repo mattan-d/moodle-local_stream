@@ -168,6 +168,13 @@ class local_stream_form extends moodleform {
         $mform->setAdvanced('endtime');
 
         $this->add_action_buttons(true, get_string('search'));
+
+        if ($help->has_capability_to_edit()) {
+            $ssourl = new moodle_url('/local/stream', ['action' => 'sso']);
+            $mform->addElement('html',
+                    '<div class="mb-4"><a href="' . $ssourl . '" class="btn btn-primary">' .
+                    get_string('streamdashboard', 'local_stream') . '</a></div>');
+        }
     }
 }
 
