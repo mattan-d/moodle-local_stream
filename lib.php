@@ -172,7 +172,7 @@ class local_stream_form extends moodleform {
         if ($help->has_capability_to_edit()) {
             $ssourl = new moodle_url('/local/stream', ['action' => 'sso']);
             $mform->addElement('html',
-                    '<div class="mb-4"><a href="' . $ssourl . '" class="btn btn-primary">' .
+                    '<div class="mb-4"><a href="' . $ssourl . '" class="btn btn-primary" target="_blank">' .
                     get_string('streamdashboard', 'local_stream') . '</a></div>');
         }
     }
