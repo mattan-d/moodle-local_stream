@@ -281,11 +281,6 @@ function local_stream_extend_navigation_course($navigation, $course, $context) {
 
     $label = get_string('streamdashboard', 'local_stream');
     $icon = new pix_icon('icon', $label, 'local_stream');
-    $streamurl = get_config('local_stream', 'streamurl');
-    if ($streamurl) {
-        $ssourl = new moodle_url('/local/stream', ['action' => 'sso']);
-        $navigation->add($label, $ssourl, navigation_node::TYPE_SETTING, null, 'streamdashboard', $icon);
-    }
 
     $label = get_string('coursedashboard', 'local_stream');
     if (isset($context->id) && $context->id) {
