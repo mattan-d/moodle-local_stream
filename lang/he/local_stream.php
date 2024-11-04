@@ -25,6 +25,8 @@
 $string['above'] = 'מעל הפעילות';
 $string['accountid'] = 'מזהה חשבון';
 $string['adddate'] = 'תאריך לשם הפעילות';
+$string['addrecordingtype'] = 'הוספת סוג הקלטה';
+$string['addrecordingtype_desc'] = 'כאשר מופעל, סוג ההקלטה יופיע בשם הפעילות.';
 $string['areyousure'] = 'האם אתה בטוח?';
 $string['audio_quality'] = 'איכות אודיו';
 $string['below'] = 'מתחת לפעילות';

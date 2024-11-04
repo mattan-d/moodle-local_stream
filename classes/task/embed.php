@@ -70,7 +70,6 @@ class embed extends \core\task\scheduled_task {
 
         if ($help->config->platform == $help::PLATFORM_ZOOM) {
             $module = $DB->get_record('modules', ['name' => 'zoom']);
-
         } else if ($help->config->platform == $help::PLATFORM_TEAMS) {
             $module = $DB->get_record('modules', ['name' => 'msteams']);
         } else if ($help->config->platform == $help::PLATFORM_UNICKO) {

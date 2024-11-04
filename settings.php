@@ -159,6 +159,8 @@ if ($hassiteconfig) {
             get_string('hidefromstudents'), '', ''));
     $settings->add(new admin_setting_configcheckbox('local_stream/hidetopic',
             get_string('hidetopic', 'local_stream'), '', ''));
+    $settings->add(new admin_setting_configcheckbox('local_stream/addrecordingtype',
+            get_string('addrecordingtype', 'local_stream'), get_string('addrecordingtype_desc', 'local_stream'), ''));
 
     $options = [
             0 => get_string('above', 'local_stream'), 1 => get_string('below', 'local_stream'),

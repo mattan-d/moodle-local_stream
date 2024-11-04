@@ -841,9 +841,11 @@ class local_stream_help {
                 'format' => true,
         ];
 
-        if ($this->config->storage == $this::STORAGE_NODOWNLOAD) {
-
+        if (isset($meeting->recordingdata)) {
             $recordingdata = json_decode($meeting->recordingdata);
+        }
+
+        if ($this->config->storage == $this::STORAGE_NODOWNLOAD) {
 
             // Webex.
             if ($this->config->platform == $this::PLATFORM_WEBEX) {
@@ -876,6 +878,10 @@ class local_stream_help {
             $moduledata->name = $this->config->prefix . ' ' . $meeting->topic;
         } else {
             $moduledata->name = $meeting->topic;
+        }
+
+        if ($this->config->addrecordingtype && isset($recordingdata) && isset($recordingdata->recording_type)) {
+            $moduledata->name .= ' ' . $this->convert_camel_case($recordingdata->recording_type);
         }
 
         if ($this->config->adddate) {
@@ -1514,5 +1520,26 @@ class local_stream_help {
         } else {
             throw new coding_exception('sesskey not valid.');
         }
+    }
+
+    /**
+     * Converts a snake_case string to CamelCase.
+     *
+     * This function takes a string formatted in snake_case (with underscores)
+     * and converts it to CamelCase by removing the underscores and capitalizing
+     * the first letter of each subsequent word.
+     *
+     * @param string $string The input string in snake_case format.
+     * @return string The converted string in CamelCase format.
+     */
+    function convert_camel_case($string) {
+
+        // Replace underscores with spaces
+        $stringwithspaces = str_replace('_', ' ', $string);
+
+        // Capitalize the first letter of the string
+        $readablestring = ucfirst($stringwithspaces);
+
+        return $readablestring;
     }
 }

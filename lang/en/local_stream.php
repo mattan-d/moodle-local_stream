@@ -25,6 +25,8 @@
 $string['above'] = 'Above';
 $string['accountid'] = 'Account ID';
 $string['adddate'] = 'Add date';
+$string['addrecordingtype'] = 'Add recording type';
+$string['addrecordingtype_desc'] = 'When enabled, the recording type will appear in the activity name.';
 $string['areyousure'] = 'Are you sure?';
 $string['audio_quality'] = 'Audio quality';
 $string['below'] = 'Below';
