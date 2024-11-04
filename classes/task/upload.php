@@ -124,6 +124,7 @@ class upload extends \core\task\scheduled_task {
             $stream['downloadurl'] = $recordingdata->download_url;
             $stream['category'] = $help->config->streamcategoryid;
             $stream['recordingdata'] = json_encode($meeting->recordingdata);
+            $stream['meetingdata'] = json_encode($meeting->meetingdata);
 
             if (!$stream['downloadurl']) {
                 mtrace('Task Error: Download URL is missing for meeting ID #' . $meeting->id);
