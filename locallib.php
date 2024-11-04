@@ -1532,12 +1532,12 @@ class local_stream_help {
      * @param string $string The input string in snake_case format.
      * @return string The converted string in CamelCase format.
      */
-    function convert_camel_case($string) {
+    public function convert_camel_case($string) {
 
-        // Replace underscores with spaces
+        // Replace underscores with spaces.
         $stringwithspaces = str_replace('_', ' ', $string);
 
-        // Capitalize the first letter of the string
+        // Capitalize the first letter of the string.
         $readablestring = ucfirst($stringwithspaces);
 
         return $readablestring;
