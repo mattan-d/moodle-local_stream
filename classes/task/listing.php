@@ -75,22 +75,27 @@ class listing extends \core\task\scheduled_task {
                 $data->from = $today;
                 $data->to = $today;
 
-                mtrace(json_encode($data));
-
                 if ($help->config->platform == $help::PLATFORM_ZOOM) { // Zoom.
                     $data->page = 1;
                     $data->size = 300;
+                    $data->from = date('Y-m-d', strtotime('-' . $days . ' day', time()));
+                    $data->to = date('Y-m-d', time());
 
                     $options = ['past', 'pastOne'];
                     $randomkey = array_rand($options);
 
                     $data->type = $options[$randomkey];
+
+                    mtrace(json_encode($data));
                     $help->listing_zoom($data);
+                    break;
                 } else if ($help->config->platform == $help::PLATFORM_WEBEX) { // Webex.
                     $data->from = $data->from . 'T00:00:00';
                     $data->to = $data->to . 'T23:59:00';
                     $data->max = 100;
                     $data->order = 'desc';
+
+                    mtrace(json_encode($data));
                     $help->listing_webex($data);
                 }
             }

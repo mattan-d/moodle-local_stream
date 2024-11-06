@@ -355,13 +355,32 @@ class local_stream_help {
      * Fetch meetings data.
      *
      * @param stdClass $data The data object.
+     * @param array $tmp Temporary array to accumulate meetings from each page (used in recursive calls).
      * @return array|null The meetings data if successful, otherwise null.
      */
-    public function fetch_meetings($data) {
-        $url = "/metrics/meetings/?page_size={$data->size}&type={$data->type}&from={$data->from}&to={$data->to}";
+    public function fetch_meetings($data, $tmp = []) {
+
+        // Construct the URL with the next_page_token if it exists.
+        $url = "/metrics/meetings/?page_size=300&type={$data->type}&from={$data->from}&to={$data->to}";
+        if (!empty($data->next_page_token)) {
+            $url .= "&next_page_token={$data->next_page_token}";
+        }
+
         $object = $this->call_zoom_api($url);
 
-        return isset($object->meetings) ? $object->meetings : null;
+        // Merge the current page of meetings into the accumulated list.
+        if (isset($object->meetings)) {
+            $tmp = array_merge($tmp, $object->meetings);
+        }
+
+        // Check if there's a next page, and recursively fetch it if so.
+        if (!empty($object->next_page_token)) {
+            $data->next_page_token = $object->next_page_token;
+            return $this->fetch_meetings($data, $tmp);
+        }
+
+        // Return all accumulated meetings once pagination is complete.
+        return !empty($tmp) ? $tmp : null;
     }
 
     /**
@@ -371,7 +390,6 @@ class local_stream_help {
      * @return void
      */
     public function listing_zoom($data) {
-
         global $DB;
 
         $meetings = $this->fetch_meetings($data);
