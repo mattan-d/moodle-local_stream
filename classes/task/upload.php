@@ -52,12 +52,9 @@ class upload extends \core\task\scheduled_task {
      * Execute the task.
      */
     public function execute() {
-        global $DB;
-
-        $help = new \local_stream_help();
-
         global $DB, $CFG;
 
+        $help = new \local_stream_help();
         $task = new \local_stream\task\notifications();
         $meetings =
                 $DB->get_records_list('local_stream_rec', 'status', [$help::MEETING_STATUS_PROCESS, $help::MEETING_STATUS_QUEUE]);
@@ -125,6 +122,7 @@ class upload extends \core\task\scheduled_task {
             $stream['category'] = $help->config->streamcategoryid;
             $stream['recordingdata'] = json_encode($meeting->recordingdata);
             $stream['meetingdata'] = json_encode($meeting->meetingdata);
+            $stream['hostname'] = $CFG->wwwroot;
 
             if (!$stream['downloadurl']) {
                 mtrace('Task Error: Download URL is missing for meeting ID #' . $meeting->id);
