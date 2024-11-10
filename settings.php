@@ -159,8 +159,6 @@ if ($hassiteconfig) {
             get_string('hidefromstudents'), '', ''));
     $settings->add(new admin_setting_configcheckbox('local_stream/hidetopic',
             get_string('hidetopic', 'local_stream'), '', ''));
-    $settings->add(new admin_setting_configcheckbox('local_stream/addrecordingtype',
-            get_string('addrecordingtype', 'local_stream'), get_string('addrecordingtype_desc', 'local_stream'), ''));
 
     $options = [
             0 => get_string('above', 'local_stream'), 1 => get_string('below', 'local_stream'),
@@ -168,6 +166,14 @@ if ($hassiteconfig) {
 
     $settings->add(new admin_setting_configselect('local_stream/embedorder',
             get_string('order'), get_string('order_desc', 'local_stream'), 0, $options));
+
+    $settings->add(new admin_setting_configcheckbox('local_stream/addrecordingtype',
+            get_string('addrecordingtype', 'local_stream'), get_string('addrecordingtype_desc', 'local_stream'), ''));
+    $settings->hide_if('local_stream/addrecordingtype', 'local_stream/platform', 'in', '1|2|3');
+
+    $settings->add(new admin_setting_configcheckbox('local_stream/basedgrouping',
+            get_string('basedgrouping', 'local_stream'), get_string('basedgrouping_desc', 'local_stream'), ''));
+    $settings->hide_if('local_stream/basedgrouping', 'local_stream/platform', 'in', '1|2|3');
 }
 
 // This adds the settings link to the folder/submenu.

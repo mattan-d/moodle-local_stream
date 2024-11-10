@@ -63,6 +63,24 @@ class embed extends \core\task\scheduled_task {
                         'timecreated DESC', '*', '0',
                         '100');
 
+        // Type-base grouping.
+        if ($help->config->basedgrouping) {
+            $uniquemeetings = [];
+            $uuids = [];
+            foreach ($meetings as $meeting) {
+                $meetingdata = json_decode($meeting->meetingdata, true);
+                if (isset($meetingdata['uuid']) && !in_array($meetingdata['uuid'], $uuids)) {
+                    $uuids[] = $meetingdata['uuid'];
+                    $uniquemeetings[] = $meeting;
+                } else {
+                    $meeting->embedded = 5;
+                    $DB->update_record('local_stream_rec', $meeting);
+                }
+            }
+
+            $meetings = $uniquemeetings;
+        }
+
         if (!$meetings) {
             mtrace('There are no recordings to be embedded.');
             return true;
