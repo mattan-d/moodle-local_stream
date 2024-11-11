@@ -1318,15 +1318,28 @@ class local_stream_help {
      * @return array The list of video files.
      */
     private function teams_get_files_recursive($owneremail, $id) {
-        $files = $this->teams_make_request('/users/' . $owneremail . '/drive/items/' . $id . '/children');
+        $allfiles = [];
+        $nextlink = '/users/' . $owneremail . '/drive/items/' . $id . '/children';
 
         // Iterate through subfolders and make recursive calls.
-        $allfiles = (array) $files->value;
-        foreach ($allfiles as $file) {
-            if ($file->folder->childCount > 0) {
-                $subfolderfiles = $this->teams_get_files_recursive($owneremail, $file->id);
-                $allfiles = array_merge($allfiles, $subfolderfiles);
+        while ($nextlink) {
+            $response = $this->teams_make_request($nextlink);
+
+            if (!isset($response->value)) {
+                break;
             }
+
+            foreach ($response->value as $file) {
+                $allfiles[] = $file;
+                if (isset($file->folder) && $file->folder->childCount > 0) {
+                    $subfolderfiles = $this->teams_get_files_recursive($owneremail, $file->id);
+                    $allfiles = array_merge($allfiles, $subfolderfiles);
+                }
+            }
+
+            // Check for next page
+            $nextlink = isset($response->{'@odata.nextLink'}) ?
+                    str_replace('https://graph.microsoft.com/v1.0', '', $response->{'@odata.nextLink'}) : null;
         }
 
         // Filter files of type 'video/mp4'.
@@ -1351,10 +1364,10 @@ class local_stream_help {
             foreach ($files as $file) {
                 $giventimestamp = strtotime($file->createdDateTime);
                 $currenttimestamp = time();
-                $onedayinseconds = (3 * 24 * 60 * 60); // 3 days.
+                $onedayinseconds = ($this->config->daystolisting * 24 * 60 * 60);
 
                 if (($currenttimestamp - $giventimestamp) <= $onedayinseconds) {
-                    mtrace('Meeting is within the last 24 hours.');
+                    mtrace('Meeting is within the last ' . $this->config->daystolisting . ' days.');
                     $this->teams_add_meeting($file);
                 }
             }
@@ -1417,7 +1430,9 @@ class local_stream_help {
         $newrecording->embedded = 0;
         $newrecording->visible = ($this->config->hidefromstudents ? 0 : 1);
         $newrecording->recordingdata =
-                json_encode(['fileid' => $data->id, 'file_size' => $data->size, 'play_url' => $data->webUrl]);
+                json_encode(['download_url' => $data->{'@microsoft.graph.downloadUrl'}, 'fileid' => $data->id,
+                        'file_size' => $data->size,
+                        'play_url' => $data->webUrl]);
         $newrecording->starttime = $start;
         $newrecording->fileid = $data->id;
 
