@@ -1337,7 +1337,7 @@ class local_stream_help {
                 }
             }
 
-            // Check for next page
+            // Check for next page.
             $nextlink = isset($response->{'@odata.nextLink'}) ?
                     str_replace('https://graph.microsoft.com/v1.0', '', $response->{'@odata.nextLink'}) : null;
         }
