@@ -924,19 +924,19 @@ class local_stream_help {
 
         if ($meeting->moduleid) {
             $cm = get_coursemodule_from_instance('stream', $meeting->moduleid);
-            $page = $DB->get_record('page', ['id' => $meeting->moduleid]);
+            $stream = $DB->get_record('stream', ['id' => $meeting->moduleid]);
 
             if ($this->config->prefix) {
-                $page->name = $this->config->prefix . ' ' . $meeting->topic;
+                $stream->name = $this->config->prefix . ' ' . $meeting->topic;
             } else {
-                $page->name = $meeting->topic;
+                $stream->name = $meeting->topic;
             }
 
             if ($this->config->adddate) {
-                $page->name .= ' (' . userdate(strtotime($meeting->starttime)) . ')';
+                $stream->name .= ' (' . userdate(strtotime($meeting->starttime)) . ')';
             }
 
-            $DB->update_record('page', $page);
+            $DB->update_record('stream', $stream);
 
             course_modinfo::purge_course_module_cache($meeting->course, $cm->id);
         } else {
