@@ -26,6 +26,7 @@ require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once(__DIR__ . '/lib.php');
 require_once(__DIR__ . '/locallib.php');
+require_once($CFG->dirroot . '/mod/stream/locallib.php');
 
 require_login();
 
@@ -199,10 +200,18 @@ foreach ($data as $row) {
     $buttons = '';
     $menuitemclass = 'dropdown-item align-items-center d-flex flex-row-reverse justify-content-end';
 
+    $payload = [
+            'identifier' => $row['streamid'],
+            'fullname' => fullname($USER),
+            'email' => $USER->email,
+    ];
+
+    $jwt = \mod_stream\local\jwt_helper::encode(get_config('stream', 'accountid'), $payload);
+    
     if ($recordingurl) {
         $icon = $icons['preview'];
         $buttons .= $OUTPUT->action_icon($recordingurl, $icon, null,
-                ['class' => $menuitemclass . ' preview-mode'], true);
+                ['class' => $menuitemclass . ' preview-mode', 'data-jwt' => $jwt], true);
     }
 
     // Visible button.

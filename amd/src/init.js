@@ -23,13 +23,14 @@
  */
 
 define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, notification) {
-    $('#page-local-stream-index .preview-mode').on('click', function(e) {
-        e.preventDefault();
+  $('#page-local-stream-index .preview-mode').on('click', function(e) {
+    e.preventDefault();
 
-        var link = $(this).attr('href');
-        link = link.replace('/watch/', '/embed/');
+    var link = $(this).attr('href'), jwt = $(this).data('jwt');
 
-        notification.alert('Preview', '<iframe src="' + link + '" width="100%" height="400px"' +
-            ' frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen sameorigin=""></iframe>');
-    });
+    link = link.replace('watch', 'embed') + '?token=' + jwt;
+
+    notification.alert('Preview', '<iframe src="' + link + '" width="100%" height="400px"' +
+        ' frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen sameorigin=""></iframe>');
+  });
 });
