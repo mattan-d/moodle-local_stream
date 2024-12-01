@@ -26,7 +26,8 @@ define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, notificat
   $('#page-local-stream-index .preview-mode').on('click', function(e) {
     e.preventDefault();
 
-    var link = $(this).attr('href'), jwt = $(this).data('jwt');
+    var link = $(this).attr('href');
+    var jwt = $(this).data('jwt');
 
     link = link.replace('watch', 'embed') + '?token=' + jwt;
 
