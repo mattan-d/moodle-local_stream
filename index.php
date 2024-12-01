@@ -207,7 +207,6 @@ foreach ($data as $row) {
     ];
 
     $jwt = \mod_stream\local\jwt_helper::encode(get_config('stream', 'accountid'), $payload);
-    
     if ($recordingurl) {
         $icon = $icons['preview'];
         $buttons .= $OUTPUT->action_icon($recordingurl, $icon, null,
