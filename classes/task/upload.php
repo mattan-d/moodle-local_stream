@@ -94,6 +94,8 @@ class upload extends \core\task\scheduled_task {
                         $course->page = new \moodle_url('/course/view.php', ['id' => $course->id]);
                         $stream['description'] =
                                 '[Zoom] Meeting#' . $meeting->meetingid . "\n\n" . $course->fullname . "\n" . $course->page . "\n";
+                        $stream['coursename'] = $course->fullname;
+                        $stream['courseid'] = $course->id;
                     }
                 }
             }
@@ -110,6 +112,8 @@ class upload extends \core\task\scheduled_task {
                             $stream['description'] =
                                     '[Unicko] Meeting#' . $meeting->meetingid . "\n\n" . $course->fullname . "\n" . $course->page .
                                     "\n";
+                            $stream['coursename'] = $course->fullname;
+                            $stream['courseid'] = $course->id;
                         }
                     }
                 }
