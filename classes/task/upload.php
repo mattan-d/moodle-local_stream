@@ -128,21 +128,23 @@ class upload extends \core\task\scheduled_task {
             $stream['meetingdata'] = json_encode($meeting->meetingdata);
             $stream['hostname'] = $CFG->wwwroot;
 
-            // Get the course context.
-            $context = \context_course::instance($course->id);
-            $tags = \core_tag_tag::get_item_tags('core', 'course', $course->id, $context->id);
-            if ($tags) {
-                if ($stream['tags']) {
-                    $stream['tags'] = json_decode($stream['tags']);
-                } else {
-                    $stream['tags'] = [];
-                }
+            if ($course && isset($course->id)) {
+                // Get the course context.
+                $context = \context_course::instance($course->id);
+                $tags = \core_tag_tag::get_item_tags('core', 'course', $course->id, $context->id);
+                if ($tags) {
+                    if ($stream['tags']) {
+                        $stream['tags'] = json_decode($stream['tags']);
+                    } else {
+                        $stream['tags'] = [];
+                    }
 
-                foreach ($tags as $tag) {
-                    $stream['tags'][] = $tag->name;
-                }
+                    foreach ($tags as $tag) {
+                        $stream['tags'][] = $tag->name;
+                    }
 
-                $stream['tags'] = json_encode($stream['tags']);
+                    $stream['tags'] = json_encode($stream['tags']);
+                }
             }
 
             if (!$stream['downloadurl']) {
