@@ -162,19 +162,19 @@ class upload extends \core\task\scheduled_task {
                 $meeting->status = $help::MEETING_STATUS_READY;
                 $DB->update_record('local_stream_rec', $meeting);
 
-                mtrace('Task: Video #' . $videoid . ' file successfully uploaded to Stream.');
-            }
+                $user = $DB->get_record('user', ['email' => $meeting->email]);
+                if ($task && $user) {
+                    $task->set_custom_data([
+                            'userid' => $user->id,
+                            'courseid' => SITEID,
+                            'meetingid' => $meeting->id,
+                            'date' => userdate(strtotime($meeting->starttime), '%d/%m/%Y'),
+                            'time' => userdate(strtotime($meeting->starttime), '%H:%M'),
+                            'topic' => $meeting->topic]);
+                    \core\task\manager::queue_adhoc_task($task);
+                }
 
-            $user = $DB->get_record('user', ['email' => $meeting->email]);
-            if ($task && $user) {
-                $task->set_custom_data([
-                        'userid' => $user->id,
-                        'courseid' => SITEID,
-                        'meetingid' => $meeting->id,
-                        'date' => userdate(strtotime($meeting->starttime), '%d/%m/%Y'),
-                        'time' => userdate(strtotime($meeting->starttime), '%H:%M'),
-                        'topic' => $meeting->topic]);
-                \core\task\manager::queue_adhoc_task($task);
+                mtrace('Task: Video #' . $videoid . ' file successfully uploaded to Stream.');
             }
         }
 
