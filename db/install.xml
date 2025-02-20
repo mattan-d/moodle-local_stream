@@ -34,5 +34,18 @@
                 <KEY NAME="recordingid" TYPE="unique" FIELDS="recordingid"/>
             </KEYS>
         </TABLE>
+        <TABLE NAME="local_stream_cc" COMMENT="Stores meeting recording details">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+                <FIELD NAME="meetingid" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="uuid" TYPE="char" DEFAULT="0" LENGTH="50" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="downloadurl" TYPE="text" DEFAULT="0" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="timecreated" TYPE="int" DEFAULT="0" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+                <KEY NAME="uuid_unique" TYPE="unique" FIELDS="uuid"/>
+            </KEYS>
+        </TABLE>
     </TABLES>
 </XMLDB>

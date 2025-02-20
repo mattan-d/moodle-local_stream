@@ -77,6 +77,7 @@ class upload extends \core\task\scheduled_task {
             }
 
             $recordingdata = json_decode($meeting->recordingdata);
+            $meetingdata = json_decode($meeting->meetingdata);
 
             // Meeting data for stream.
             $stream = [];
@@ -116,6 +117,16 @@ class upload extends \core\task\scheduled_task {
                             $stream['courseid'] = $course->id;
                         }
                     }
+                }
+            }
+
+            // Closed Caption.
+            if ($meetingdata) {
+                $closedcaption =
+                        $DB->get_record('local_stream_cc',
+                                ['meetingid' => $meeting->meetingid, 'uuid' => $meetingdata->uuid]);
+                if ($closedcaption) {
+                    $stream['ccurl'] = $closedcaption->downloadurl;
                 }
             }
 
@@ -174,7 +185,11 @@ class upload extends \core\task\scheduled_task {
                     \core\task\manager::queue_adhoc_task($task);
                 }
 
-                mtrace('Task: Video #' . $videoid . ' file successfully uploaded to Stream.');
+                if (isset($stream['ccurl'])) {
+                    mtrace('Task: Video #' . $videoid . ' file with closed caption (CC) successfully uploaded to Stream.');
+                } else {
+                    mtrace('Task: Video #' . $videoid . ' file successfully uploaded to Stream.');
+                }
             }
         }
 

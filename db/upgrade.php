@@ -44,5 +44,28 @@ function xmldb_local_stream_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2024060700, 'local', 'stream');
     }
 
+    if ($oldversion < 2025022000) {
+        // Define table local_stream_cc
+        $table = new xmldb_table('local_stream_cc');
+
+        // Adding fields
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('meetingid', XMLDB_TYPE_CHAR, '50', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('uuid', XMLDB_TYPE_CHAR, '50', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('downloadurl', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+
+        // Adding keys
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']); // Primary key should be on 'id'
+        $table->add_key('uuid_unique', XMLDB_KEY_UNIQUE, ['uuid']); // Ensuring uuid is unique
+
+        // Create table if it does not exist
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2025022000, 'local', 'stream');
+    }
+
     return true;
 }

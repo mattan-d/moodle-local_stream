@@ -427,6 +427,26 @@ class local_stream_help {
                     continue;
                 }
 
+                // Closed caption.
+                if (strtolower($recording->file_type) == 'cc') {
+                    if ($existcc = $DB->get_record('local_stream_cc',
+                            ['meetingid' => $meeting->id, 'uuid' => $meeting->uuid])) {
+
+                        mtrace('Task: Skipping closed caption recording #' . $recording->id .
+                                ' was previously saved and exists in the db.');
+                        continue;
+                    } else {
+                        $newcc = new stdClass();
+                        $newcc->meetingid = $meeting->id;
+                        $newcc->uuid = $meeting->uuid;
+                        $newcc->downloadurl = $recording->download_url;
+                        $newcc->timecreated = time();
+                        $DB->insert_record('local_stream_cc', $newcc);
+
+                        mtrace('Task: A new closed caption (CC) was found and saved in the database.');
+                    }
+                }
+
                 if (strtolower($recording->file_type) != 'mp4') {
                     continue;
                 }
