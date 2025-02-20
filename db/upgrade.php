@@ -53,9 +53,9 @@ function xmldb_local_stream_upgrade($oldversion) {
         $table->add_field('downloadurl', XMLDB_TYPE_TEXT, null, null, null, null, null);
         $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
 
-        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']); // Primary key should be on 'id'
-        $table->add_key('uuid_unique', XMLDB_KEY_UNIQUE, ['uuid']); // Ensuring uuid is unique
-        
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_key('uuid_unique', XMLDB_KEY_UNIQUE, ['uuid']);
+
         if (!$dbman->table_exists($table)) {
             $dbman->create_table($table);
         }
