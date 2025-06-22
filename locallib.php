@@ -1044,9 +1044,6 @@ class local_stream_help {
             $meetings = $DB->get_records('local_stream_rec', [], 'email DESC', 'id, email');
             foreach ($meetings as $meeting) {
 
-                /*$likeemail = $DB->sql_like('email', ':email', false, false);
-                $user = $DB->get_record_sql("SELECT * FROM {user} WHERE {$likeemail}", ['email' => $meeting->email]);
-                */
                 $user = $DB->get_record('user', ['email' => $meeting->email]);
 
                 if ($user) {
