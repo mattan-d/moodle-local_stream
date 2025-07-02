@@ -428,7 +428,7 @@ class local_stream_help {
                 }
 
                 // Closed caption.
-                if (strtolower($recording->file_type) == 'cc') {
+                if (strtolower($recording->file_type) == 'cc' || strtolower($recording->file_type) == 'transcript') {
                     if ($existcc = $DB->get_record('local_stream_cc',
                             ['meetingid' => $meeting->id, 'uuid' => $meeting->uuid])) {
 
