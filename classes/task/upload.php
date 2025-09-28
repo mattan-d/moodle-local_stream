@@ -133,6 +133,15 @@ class upload extends \core\task\scheduled_task {
             // Stream Upload.
             $stream['topic'] = $meeting->topic;
             $stream['email'] = $meeting->email;
+
+            $user = $DB->get_record('user', ['email' => $meeting->email]);
+            if ($user) {
+                // add user fields
+                $stream['firstname'] = $user->firstname;
+                $stream['lastname'] = $user->lastname;
+                $stream['username'] = $user->username;
+            }
+
             $stream['downloadurl'] = $recordingdata->download_url;
             $stream['category'] = $help->config->streamcategoryid;
             $stream['recordingdata'] = json_encode($meeting->recordingdata);
