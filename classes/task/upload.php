@@ -177,6 +177,8 @@ class upload extends \core\task\scheduled_task {
                 if ($task && $user) {
                     $task->set_custom_data([
                             'userid' => $user->id,
+                            'firstname' => $user->firstname,
+                            'lastname' => $user->lastname,
                             'courseid' => SITEID,
                             'meetingid' => $meeting->id,
                             'date' => userdate(strtotime($meeting->starttime), '%d/%m/%Y'),
