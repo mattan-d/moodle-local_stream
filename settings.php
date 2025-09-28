@@ -174,6 +174,12 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_configcheckbox('local_stream/basedgrouping',
             get_string('basedgrouping', 'local_stream'), get_string('basedgrouping_desc', 'local_stream'), ''));
     $settings->hide_if('local_stream/basedgrouping', 'local_stream/platform', 'in', '1|2|3');
+
+    // New setting for default collection mode.
+    $settings->add(new admin_setting_configcheckbox('local_stream/defaultcollectionmode',
+            get_string('defaultcollectionmode', 'local_stream'),
+            get_string('defaultcollectionmode_desc', 'local_stream'), '1'));
+    $settings->hide_if('local_stream/defaultcollectionmode', 'local_stream/platform', 'in', '1|2|3');
 }
 
 // This adds the settings link to the folder/submenu.

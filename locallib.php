@@ -874,14 +874,14 @@ class local_stream_help {
         if ($this->config->platform == $this::PLATFORM_ZOOM && $meeting->streamid) {
             // Find mod_stream instances with collection_mode=true in the specified course
             $streaminstances = $DB->get_records('stream', [
-                'course' => $meeting->course,
-                'collection_mode' => 1
+                    'course' => $meeting->course,
+                    'collection_mode' => 1
             ]);
 
             if (!empty($streaminstances)) {
                 // Use the first available stream instance (you can modify this logic as needed)
                 $streaminstance = reset($streaminstances);
-                
+
                 // Add the new video ID to the existing collection
                 $currentidentifiers = !empty($streaminstance->identifier) ? explode(',', $streaminstance->identifier) : [];
                 $currentvideoorder = !empty($streaminstance->video_order) ? json_decode($streaminstance->video_order, true) : [];
@@ -915,12 +915,12 @@ class local_stream_help {
         $moduledata->visible = ($this->config->hidefromstudents ? 0 : 1);
         $moduledata->contentformat = FORMAT_HTML;
         $moduledata->introeditor = [
-            'text' => '',
-            'format' => true,
+                'text' => '',
+                'format' => true,
         ];
 
-        // For Zoom platform, check if this is the first mod_stream in the course
-        if ($this->config->platform == $this::PLATFORM_ZOOM) {
+        // For Zoom platform, check if this is the first mod_stream in the course and setting is enabled
+        if ($this->config->platform == $this::PLATFORM_ZOOM && $this->config->defaultcollectionmode) {
             $existingstreams = $DB->count_records('stream', ['course' => $meeting->course]);
             if ($existingstreams == 0) {
                 // This is the first mod_stream in the course, set collection_mode = 1
