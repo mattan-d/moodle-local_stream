@@ -139,6 +139,7 @@ class upload extends \core\task\scheduled_task {
                 // add user fields
                 $stream['firstname'] = $user->firstname;
                 $stream['lastname'] = $user->lastname;
+                $stream['username'] = $user->username;
             }
 
             $stream['downloadurl'] = $recordingdata->download_url;
