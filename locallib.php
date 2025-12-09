@@ -889,7 +889,7 @@ class local_stream_help {
                 // Add new video ID if not already present
                 if (!in_array($meeting->streamid, $currentidentifiers)) {
                     $currentidentifiers[] = $meeting->streamid;
-                    $currentvideoorder[] = (string)$meeting->streamid;
+                    $currentvideoorder[] = (string) $meeting->streamid;
 
                     // Update the stream instance
                     $streaminstance->identifier = implode(',', $currentidentifiers);
@@ -899,10 +899,10 @@ class local_stream_help {
                     $DB->update_record('stream', $streaminstance);
 
                     // Return the existing stream instance ID
-                    return (object)['id' => $streaminstance->id];
+                    return (object) ['id' => $streaminstance->id];
                 }
 
-                return (object)['id' => $streaminstance->id];
+                return (object) ['id' => $streaminstance->id];
             }
         }
 
@@ -1060,14 +1060,16 @@ class local_stream_help {
 
         $courseid = optional_param('course', 0, PARAM_INT);
         if (!isset($courseids)) {
-            $courseids = [0];
+            $courseids = [];
 
-            if ($courseid) {
+            if ($courseid && $courseid > 0) {
                 $courseids[] = $courseid;
             } else {
                 $courses = enrol_get_my_courses();
                 foreach ($courses as $course) {
-                    $courseids[] = $course->id;
+                    if ($course->id > 0) {
+                        $courseids[] = $course->id;
+                    }
                 }
             }
         }
@@ -1152,8 +1154,11 @@ class local_stream_help {
             $sql .= ' AND ' . $DB->sql_like($DB->sql_cast_to_char('meetingid'), ':meetingid', false, false);
         }
 
-        if (isset($params['email']) && $params['email']) {
-            $sql .= ' AND ' . $DB->sql_equal('email', ':email', true, false);
+        // Filter for students only.
+        if (!$this->has_capability_to_edit()) {
+            if (isset($params['email']) && $params['email']) {
+                $sql .= ' AND ' . $DB->sql_equal('email', ':email', true, false);
+            }
         }
 
         if (isset($params['visible']) && $params['visible']) {
