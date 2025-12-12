@@ -42,6 +42,8 @@ require_capability('local/stream:manage', $context);
 
 $help = new local_stream_help();
 
+$cache = cache::make('local_stream', 'meetings_filtering');
+
 if ($action == 'sso') {
     $help->stream_login($redirect);
 }
@@ -73,55 +75,59 @@ $form = new local_stream_form();
 $basefilter = [];
 $basefilter['status'] = [$help::MEETING_STATUS_READY];
 
-if (!isset($SESSION->meetings_filtering)) {
-    $SESSION->meetings_filtering = [];
-    $SESSION->meetings_filtering = $basefilter;
+$meetingsfiltering = $cache->get('filters');
+if (!$meetingsfiltering) {
+    $meetingsfiltering = $basefilter;
+    $cache->set('filters', $meetingsfiltering);
 }
 
 if ($form->is_cancelled()) {
-    $SESSION->meetings_filtering = $basefilter;
+    $cache->set('filters', $basefilter);
     $baseurl = new moodle_url('/local/stream/index.php');
     redirect($baseurl);
 }
 
 if ($courseid) {
-    $SESSION->meetings_filtering['course'] = $courseid;
+    $meetingsfiltering['course'] = $courseid;
+    $cache->set('filters', $meetingsfiltering);
 }
 
 if (($search = $form->get_data()) && confirm_sesskey()) {
 
     if ($search->starttime > 0) {
-        $SESSION->meetings_filtering['starttime'] = userdate($search->starttime, '%Y-%m-%dT%H:%M:00Z', null, false);
+        $meetingsfiltering['starttime'] = userdate($search->starttime, '%Y-%m-%dT%H:%M:00Z', null, false);
     }
 
     if ($search->endtime > 0) {
-        $SESSION->meetings_filtering['endtime'] = userdate($search->endtime, '%Y-%m-%dT%H:%M:00Z', null, false);
+        $meetingsfiltering['endtime'] = userdate($search->endtime, '%Y-%m-%dT%H:%M:00Z', null, false);
     }
 
     if ($search->meeting > 0) {
-        $SESSION->meetings_filtering['meetingid'] = '%' . $search->meeting . '%';
+        $meetingsfiltering['meetingid'] = '%' . $search->meeting . '%';
     }
 
     if (isset($search->email) && $search->email) {
-        $SESSION->meetings_filtering['email'] = $search->email;
+        $meetingsfiltering['email'] = $search->email;
     }
 
     if (isset($search->topic) && $search->topic) {
-        $SESSION->meetings_filtering['topic'] = '%' . $search->topic . '%';
+        $meetingsfiltering['topic'] = '%' . $search->topic . '%';
     }
 
     if (isset($search->course) && $search->course) {
-        $SESSION->meetings_filtering['course'] = $search->course;
+        $meetingsfiltering['course'] = $search->course;
     }
 
     if (isset($search->visible) && $search->visible) {
-        $SESSION->meetings_filtering['visible'] = $search->visible;
+        $meetingsfiltering['visible'] = $search->visible;
     }
 
     if (isset($search->duration) && $search->duration) {
         $interval = new DateInterval('PT' . $search->duration . 'S');
-        $SESSION->meetings_filtering['duration'] = $interval->format('%H:%I:%S');
+        $meetingsfiltering['duration'] = $interval->format('%H:%I:%S');
     }
+    
+    $cache->set('filters', $meetingsfiltering);
 }
 
 $perpage = $help->config->recordingsperpage;
@@ -129,20 +135,21 @@ if (!is_siteadmin($USER)) {
     $user = $DB->get_record('user', ['id' => $USER->id]);
     if ($user) {
         $basefilter['email'] = $user->email;
-        $SESSION->meetings_filtering['email'] = $user->email;
+        $meetingsfiltering['email'] = $user->email;
+        $cache->set('filters', $meetingsfiltering);
         $data = $help->get_meetings($basefilter, false, $page);
         $recordingscount = $help->get_meetings($basefilter, true);
     }
 } else {
-    $data = $help->get_meetings($SESSION->meetings_filtering, false, $page);
+    $data = $help->get_meetings($meetingsfiltering, false, $page);
     $recordingscount = $help->get_meetings($basefilter, true);
 }
 
 $data = json_decode(json_encode($data), true);;
 
-if (isset($SESSION->meetings_filtering) || isset($courseid)) {
-    if ($SESSION->meetings_filtering != $basefilter) {
-        $searchcount = $help->get_meetings($SESSION->meetings_filtering, true);
+if ($meetingsfiltering || isset($courseid)) {
+    if ($meetingsfiltering != $basefilter) {
+        $searchcount = $help->get_meetings($meetingsfiltering, true);
     }
 }
 

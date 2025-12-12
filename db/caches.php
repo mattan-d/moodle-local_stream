@@ -28,4 +28,14 @@ $definitions = [
         'streamdata' => [
                 'mode' => cache_store::MODE_APPLICATION,
         ],
+        'meetings_filtering' => [
+                'mode' => cache_store::MODE_SESSION,
+                'simplekeys' => true,
+                'simpledata' => false,
+        ],
+        'usercapability' => [
+                'mode' => cache_store::MODE_SESSION,
+                'simplekeys' => true,
+                'simpledata' => true,
+        ],
 ];

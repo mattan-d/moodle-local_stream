@@ -874,8 +874,8 @@ class local_stream_help {
         if ($this->config->platform == $this::PLATFORM_ZOOM && $meeting->streamid) {
             // Find mod_stream instances with collection_mode=true in the specified course
             $streaminstances = $DB->get_records('stream', [
-                    'course' => $meeting->course,
-                    'collection_mode' => 1
+                'course' => $meeting->course,
+                'collection_mode' => 1
             ]);
 
             if (!empty($streaminstances)) {
@@ -915,8 +915,8 @@ class local_stream_help {
         $moduledata->visible = ($this->config->hidefromstudents ? 0 : 1);
         $moduledata->contentformat = FORMAT_HTML;
         $moduledata->introeditor = [
-                'text' => '',
-                'format' => true,
+            'text' => '',
+            'format' => true,
         ];
 
         // For Zoom platform, check if this is the first mod_stream in the course and setting is enabled
@@ -1014,36 +1014,34 @@ class local_stream_help {
     }
 
     /**
-     * Check if the current user has the capability to edit in the local Stream context.
+     * Determines whether the current user has the capability to edit within the local stream plugin context.
      *
-     * This function checks if the current user has either the 'teacher' or 'editingteacher' role, or if the user
+     * This method checks if the current user is assigned to the 'teacher' or 'editingteacher' role, or if the user
      * is a site administrator, granting them the capability to edit in the local Stream context.
      *
      * @return bool Returns true if the user has the capability to edit, and false otherwise.
      */
     public function has_capability_to_edit() {
-        global $USER, $DB, $SESSION;
+        global $USER, $DB;
 
-        static $capability;
+        $cache = cache::make('local_stream', 'usercapability');
+        $capability = $cache->get('capability');
 
-        if (isset($SESSION->usercapability)) {
-            return $SESSION->usercapability;
+        if ($capability !== false) {
+            return $capability;
         }
 
-        if (!isset($capability)) {
-            $teacher = $DB->get_record('role', ['shortname' => 'teacher']);
-            $editingteacher = $DB->get_record('role', ['shortname' => 'editingteacher']);
+        $teacher = $DB->get_record('role', ['shortname' => 'teacher']);
+        $editingteacher = $DB->get_record('role', ['shortname' => 'editingteacher']);
 
-            $capability = false;
-            if (user_has_role_assignment($USER->id, $teacher->id) || user_has_role_assignment($USER->id, $editingteacher->id) ||
-                    is_siteadmin($USER)) {
-                $capability = true;
-            }
-
-            if (!isset($SESSION->usercapability)) {
-                $SESSION->usercapability = $capability;
-            }
+        $capability = false;
+        if (user_has_role_assignment($USER->id, $teacher->id) ||
+            user_has_role_assignment($USER->id, $editingteacher->id) ||
+            is_siteadmin($USER)) {
+            $capability = true;
         }
+
+        $cache->set('capability', $capability);
 
         return $capability;
     }
