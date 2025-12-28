@@ -124,3 +124,4 @@ $string['webexjwt'] = 'JWT';
 $string['zoom'] = 'Zoom';
 $string['defaultcollectionmode'] = 'Default collection mode';
 $string['defaultcollectionmode_desc'] = 'When enabled, the first mod_stream instance created in a course will have collection_mode set to true, allowing multiple videos to be grouped together.';
+$string['studentaccessdisabled'] = 'Student access to the recordings dashboard has been disabled by the administrator.';

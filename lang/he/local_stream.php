@@ -125,3 +125,4 @@ $string['webexjwt'] = 'מזהה JWT';
 $string['zoom'] = 'זום';
 $string['defaultcollectionmode'] = 'מצב אוסף ברירת מחדל';
 $string['defaultcollectionmode_desc'] = 'כאשר מופעל, המופע הראשון של mod_stream שנוצר בקורס יהיה עם collection_mode מוגדר כ-true, מה שמאפשר לקבץ מספר סרטונים יחד.';
+$string['studentaccessdisabled'] = 'הגישה של תלמידים ללוח ההקלטות הושבתה על ידי המנהל.';

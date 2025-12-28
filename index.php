@@ -30,6 +30,15 @@ require_once($CFG->dirroot . '/mod/stream/locallib.php');
 
 require_login();
 
+if (!empty($CFG->streamdisablefromstudents)) {
+    $context = context_system::instance();
+    $help = new local_stream_help();
+
+    if (!$help->has_capability_to_edit()) {
+        throw new moodle_exception('nopermissions', 'error', '', get_string('studentaccessdisabled', 'local_stream'));
+    }
+}
+
 $page = optional_param('page', 0, PARAM_INT);
 $courseid = optional_param('course', null, PARAM_INT);
 $action = optional_param('action', null, PARAM_TEXT);
@@ -126,7 +135,7 @@ if (($search = $form->get_data()) && confirm_sesskey()) {
         $interval = new DateInterval('PT' . $search->duration . 'S');
         $meetingsfiltering['duration'] = $interval->format('%H:%I:%S');
     }
-    
+
     $cache->set('filters', $meetingsfiltering);
 }
 
