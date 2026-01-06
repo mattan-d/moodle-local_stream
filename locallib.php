@@ -113,6 +113,26 @@ class local_stream_help {
     public const STORAGE_STREAM = 4;
 
     /**
+     * Get the human-readable platform name.
+     *
+     * @return string The platform name.
+     */
+    public function get_platform_name() {
+        switch ($this->config->platform) {
+            case self::PLATFORM_ZOOM:
+                return 'Zoom';
+            case self::PLATFORM_WEBEX:
+                return 'Webex';
+            case self::PLATFORM_TEAMS:
+                return 'Microsoft Teams';
+            case self::PLATFORM_UNICKO:
+                return 'Unicko';
+            default:
+                return 'Unknown';
+        }
+    }
+
+    /**
      * Constructor function.
      * Initializes the object by setting the 'config' property using the 'local_stream' configuration.
      */
@@ -874,8 +894,8 @@ class local_stream_help {
         if ($this->config->platform == $this::PLATFORM_ZOOM && $meeting->streamid) {
             // Find mod_stream instances with collection_mode=true in the specified course
             $streaminstances = $DB->get_records('stream', [
-                'course' => $meeting->course,
-                'collection_mode' => 1
+                    'course' => $meeting->course,
+                    'collection_mode' => 1
             ]);
 
             if (!empty($streaminstances)) {
@@ -915,8 +935,8 @@ class local_stream_help {
         $moduledata->visible = ($this->config->hidefromstudents ? 0 : 1);
         $moduledata->contentformat = FORMAT_HTML;
         $moduledata->introeditor = [
-            'text' => '',
-            'format' => true,
+                'text' => '',
+                'format' => true,
         ];
 
         // For Zoom platform, check if this is the first mod_stream in the course and setting is enabled
@@ -1036,8 +1056,8 @@ class local_stream_help {
 
         $capability = false;
         if (user_has_role_assignment($USER->id, $teacher->id) ||
-            user_has_role_assignment($USER->id, $editingteacher->id) ||
-            is_siteadmin($USER)) {
+                user_has_role_assignment($USER->id, $editingteacher->id) ||
+                is_siteadmin($USER)) {
             $capability = true;
         }
 
