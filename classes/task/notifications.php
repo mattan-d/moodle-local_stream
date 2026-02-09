@@ -53,6 +53,11 @@ class notifications extends \core\task\adhoc_task {
         $data = $this->get_custom_data();
         $user = $DB->get_record('user', ['id' => $data->userid]);
         if ($user) {
+            // Optional video link for upload notification (embed task does not pass videourl).
+            $data->videolink = '';
+            if (!empty($data->videourl)) {
+                $data->videolink = '<a href="' . s($data->videourl) . '">' . get_string('viewvideo', 'local_stream') . '</a>';
+            }
 
             $message = new \core\message\message();
             $message->courseid = $data->courseid;
@@ -65,11 +70,12 @@ class notifications extends \core\task\adhoc_task {
             $message->fullmessageformat = FORMAT_MARKDOWN;
             $message->fullmessagehtml = get_string('messagenewvideocontent', 'local_stream', $data);
             $message->notification = 1; // Because this is a notification generated from Moodle, not a user-to-user message.
-            $message->contexturl =
-                    (new \moodle_url('/local/stream/index.php'))->out(false); // A relevant URL for the notification.
-            $message->contexturlname =
-                    get_string('dashboard',
-                            'local_stream'); // Link title explaining where users get to for the contexturl.
+            $message->contexturl = !empty($data->videourl)
+                    ? $data->videourl
+                    : (new \moodle_url('/local/stream/index.php'))->out(false);
+            $message->contexturlname = !empty($data->videourl)
+                    ? get_string('viewvideo', 'local_stream')
+                    : get_string('dashboard', 'local_stream');
 
             if (message_send($message)) {
                 mtrace('notification successfully sent to user #' . $user->id);

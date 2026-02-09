@@ -184,13 +184,15 @@ class upload extends \core\task\scheduled_task {
 
                 $user = $DB->get_record('user', ['email' => $meeting->email]);
                 if ($task && $user) {
+                    $videourl = $help->config->streamurl . '/watch/' . $videoid;
                     $task->set_custom_data([
                             'userid' => $user->id,
                             'courseid' => SITEID,
                             'meetingid' => $meeting->id,
                             'date' => userdate(strtotime($meeting->starttime), '%d/%m/%Y'),
                             'time' => userdate(strtotime($meeting->starttime), '%H:%M'),
-                            'topic' => $meeting->topic]);
+                            'topic' => $meeting->topic,
+                            'videourl' => $videourl]);
                     \core\task\manager::queue_adhoc_task($task);
                 }
 

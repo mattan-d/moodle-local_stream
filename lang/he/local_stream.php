@@ -66,8 +66,9 @@ $string['invalid'] = 'שגוי';
 $string['meeting'] = 'פגישה';
 $string['meetingid'] = 'מזהה פגישה';
 $string['messagenewvideocontent'] =
-        'שמחים לבשר לך שההקלטה החדשה שלך, בנושא <b>{$a->topic}</b>,  מתאריך <u>{$a->date}</u> בשעה <u>{$a->time}</u>, זמינה לצפייה כעת בלוח ההקלטות.';
+        'שמחים לבשר לך שההקלטה החדשה שלך, בנושא <b>{$a->topic}</b>,  מתאריך <u>{$a->date}</u> בשעה <u>{$a->time}</u>, זמינה לצפייה כעת בלוח ההקלטות. {$a->videolink}';
 $string['messagenewvideosubject'] = 'הקלטה חדשה: {$a}';
+$string['viewvideo'] = 'צפה בסרטון';
 $string['messageprovider:uploaded'] = 'הודעה על סרטון חדש שהועלה';
 $string['nodownload'] = 'ללא סנכרון';
 $string['order_desc'] = 'שיבוץ של ההקלטה מעל/מתחת למפגש המקורי.';

@@ -66,8 +66,9 @@ $string['invalid'] = 'Invalid';
 $string['meeting'] = 'Meeting';
 $string['meetingid'] = 'Meeting ID';
 $string['messagenewvideocontent'] =
-        'We are pleased to inform you that your new recording, with the subject <b>{$a->topic}</b>, dated <u>{$a->date}</u> at <u>{$a->time}</u>, is now available for viewing on the recordings board.';
+        'We are pleased to inform you that your new recording, with the subject <b>{$a->topic}</b>, dated <u>{$a->date}</u> at <u>{$a->time}</u>, is now available for viewing on the recordings board. {$a->videolink}';
 $string['messagenewvideosubject'] = 'New recording: {$a}';
+$string['viewvideo'] = 'View video';
 $string['messageprovider:uploaded'] = 'Notification for new video';
 $string['nodownload'] = 'No download';
 $string['order_desc'] = 'Embedding of the recording above/below the original meeting.';
