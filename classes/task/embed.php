@@ -177,8 +177,12 @@ class embed extends \core\task\scheduled_task {
                     $destination = $DB->get_record('course_modules',
                             ['course' => $platform->course, 'module' => $module->id, 'instance' => $platform->id]);
 
-                    $section = $DB->get_record('course_sections',
-                            ['course' => $platform->course, 'id' => $destination->section]);
+                    // Only resolve section and move modules when destination exists and section is valid.
+                    $section = null;
+                    if ($destination) {
+                        $section = $DB->get_record('course_sections',
+                                ['course' => $platform->course, 'id' => $destination->section]);
+                    }
 
                     // Check if the 'sectionname' from the Moodle course matches the meeting name from Microsoft Teams.
                     // If it does, retrieve the corresponding course section record from the database using the course ID
@@ -187,17 +191,17 @@ class embed extends \core\task\scheduled_task {
                         $section = $DB->get_record('course_sections',
                                 ['course' => $platform->course, 'name' => $details['sectionname']]);
 
-                        if ($section) {
+                        if ($section && $source) {
                             moveto_module($source, $section);
                         }
-                    } else {
+                    } else if ($section && $source) {
 
                         if ($destination) {
                             moveto_module($source, $section, $destination);
                         }
 
                         // Move page under Zoom meeting.
-                        if ($help->config->embedorder == '1') {
+                        if ($help->config->embedorder == '1' && $destination) {
                             moveto_module($destination, $section, $source);
                         }
                     }
