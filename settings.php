@@ -164,6 +164,11 @@ if ($hassiteconfig) {
             get_string('zoom_account_stats_heading_desc', 'local_stream', $zoomstatsurl->out(false))));
     $settings->hide_if('local_stream/zoom_account_stats', 'local_stream/platform', 'in', '1|2|3');
 
+    $settings->add(new admin_setting_configcheckbox('local_stream/zoom_revoke_inactive_license',
+            get_string('zoom_revoke_inactive_license', 'local_stream'),
+            get_string('zoom_revoke_inactive_license_desc', 'local_stream'), 0));
+    $settings->hide_if('local_stream/zoom_revoke_inactive_license', 'local_stream/platform', 'in', '1|2|3');
+
     // Embedding.
     $settings->add(new admin_setting_heading('embeddingsettings', get_string('embeddingsettings', 'local_stream'), ''));
 

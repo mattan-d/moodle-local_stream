@@ -143,3 +143,6 @@ $string['zoom_stats_basic_users'] = 'משתמשים ללא רישיון';
 $string['zoom_stats_storage_used'] = 'נפח אחסון בשימוש (הקלטות ענן)';
 $string['zoom_stats_storage_gb'] = '{$a->gb} GB';
 $string['zoom_stats_storage_na'] = 'לא זמין';
+$string['zoom_revoke_inactive_license'] = 'הורדת רישיון ממשתמשים לא פעילים';
+$string['zoom_revoke_inactive_license_desc'] = 'כאשר מופעל (רק Zoom), משימה מתוזמנת תהפוך משתמשים עם רישיון ל-Basic כאשר: (1) ההתחברות האחרונה הייתה לפני לפחות 6 שעות, (2) המשתמש לא נמצא כעת בפגישה, ו-(3) אין למשתמש פגישה מתוכננת ב-2 השעות הקרובות. משחרר רישיונות להקצאה מחדש. נדרשים scopes ב-Zoom: user:read:admin, user:write:admin; dashboard_meetings:read:admin נדרש לזיהוי משתמשים בפגישות חיות.';
+$string['revoke_zoom_license_task'] = 'הורדת רישיון Zoom ממשתמשים לא פעילים';

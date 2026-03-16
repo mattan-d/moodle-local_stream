@@ -71,4 +71,13 @@ $tasks = [
                 'month' => '*',
                 'dayofweek' => '*',
         ],
+        [
+                'classname' => 'local_stream\task\revoke_zoom_license',
+                'blocking' => 0,
+                'minute' => '30',
+                'hour' => '*/2',
+                'day' => '*',
+                'month' => '*',
+                'dayofweek' => '*',
+        ],
 ];

@@ -258,10 +258,11 @@ class local_stream_help {
 
         $curl = new \curl();
         $curl->setHeader($header);
-        $jsonresult = $curl->$method('https://api.zoom.us/v2/' . $url, $jsondata, $options);
+        $body = (!empty($jsondata) && in_array($method, ['patch', 'post', 'put'])) ? json_encode($jsondata) : $jsondata;
+        $jsonresult = $curl->$method('https://api.zoom.us/v2/' . $url, $body, $options);
         $response = json_decode($jsonresult);
 
-        if ($response->message && $debug) {
+        if ($response && !empty($response->message) && $debug) {
             mtrace('Error: ' . $response->message);
         }
 
@@ -400,6 +401,187 @@ class local_stream_help {
         } catch (\Exception $e) {
             $result->error = $e->getMessage();
         }
+        return $result;
+    }
+
+    /**
+     * Get Zoom user details (includes last_login_time, type). For revoke-inactive-license checks.
+     *
+     * @param string $userid Zoom user id or email.
+     * @return stdClass|null User object or null on error.
+     */
+    public function get_zoom_user($userid) {
+        if ($this->config->platform != $this::PLATFORM_ZOOM) {
+            return null;
+        }
+        $response = $this->call_zoom_api('users/' . $userid, [], 'get', false, true);
+        if (!empty($response->message) || empty($response->id)) {
+            return null;
+        }
+        return $response;
+    }
+
+    /**
+     * Get set of Zoom user ids that are currently in a live meeting (dashboard API).
+     * Returns null if API fails (e.g. missing scope dashboard_meetings:read:admin).
+     *
+     * @return array|null Array of user ids in live meetings, or null on error.
+     */
+    public function get_zoom_live_meeting_participant_user_ids() {
+        if ($this->config->platform != $this::PLATFORM_ZOOM) {
+            return [];
+        }
+        $userids = [];
+        try {
+            $from = date('Y-m-d');
+            $to = $from;
+            $url = 'metrics/meetings?type=live&from=' . $from . '&to=' . $to . '&page_size=300';
+            $response = $this->call_zoom_api($url, [], 'get', false, true);
+            if (!empty($response->message)) {
+                return null;
+            }
+            $meetings = isset($response->meetings) ? $response->meetings : [];
+            foreach ($meetings as $meeting) {
+                $meetingid = isset($meeting->uuid) ? $meeting->uuid : (isset($meeting->id) ? $meeting->id : null);
+                if (!$meetingid) {
+                    continue;
+                }
+                $participantsurl = 'metrics/meetings/' . $this->encode_uuid($meetingid) . '/participants?type=live&page_size=300';
+                $parts = $this->call_zoom_api($participantsurl, [], 'get', false, true);
+                if (!empty($parts->message) || empty($parts->participants)) {
+                    continue;
+                }
+                foreach ($parts->participants as $p) {
+                    $uid = isset($p->user_id) ? $p->user_id : (isset($p->id) ? $p->id : null);
+                    if ($uid) {
+                        $userids[$uid] = true;
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            return null;
+        }
+        return array_keys($userids);
+    }
+
+    /**
+     * Get scheduled meetings for a user that start within the next N hours.
+     *
+     * @param string $userid Zoom user id or email.
+     * @param int $hours Number of hours ahead to check.
+     * @return array List of meetings (with start_time).
+     */
+    public function get_zoom_user_scheduled_meetings_next_hours($userid, $hours) {
+        if ($this->config->platform != $this::PLATFORM_ZOOM || $hours < 1) {
+            return [];
+        }
+        $response = $this->call_zoom_api('users/' . $userid . '/meetings?type=scheduled&page_size=100', [], 'get', false, true);
+        if (!empty($response->message) || empty($response->meetings)) {
+            return [];
+        }
+        $deadline = time() + ($hours * 3600);
+        $upcoming = [];
+        foreach ($response->meetings as $m) {
+            if (empty($m->start_time)) {
+                continue;
+            }
+            $start = is_numeric($m->start_time) ? (int) $m->start_time : strtotime($m->start_time);
+            if ($start !== false && $start <= $deadline && $start >= time() - 300) {
+                $upcoming[] = $m;
+            }
+        }
+        return $upcoming;
+    }
+
+    /**
+     * Revoke Zoom license: set user type to Basic (1). Requires user:write:admin.
+     *
+     * @param string $userid Zoom user id or email.
+     * @return bool True on success.
+     */
+    public function revoke_zoom_user_license($userid) {
+        if ($this->config->platform != $this::PLATFORM_ZOOM) {
+            return false;
+        }
+        $response = $this->call_zoom_api('users/' . $userid, ['type' => 1], 'patch', false, true);
+        if ($response === null || !empty($response->message)) {
+            mtrace('revoke_zoom_user_license: ' . $response->message . ' for user ' . $userid);
+            return false;
+        }
+        return true;
+    }
+
+    /** Minimum hours since last login to allow revoke. */
+    const ZOOM_REVOKE_LAST_LOGIN_HOURS = 6;
+
+    /**
+     * Run revoke-inactive-license: find licensed Zoom users who meet all 3 conditions and set them to Basic.
+     * Conditions: (1) last login >= 6h ago, (2) not in a live meeting, (3) no meeting in next 2 hours.
+     *
+     * @return array [ 'revoked' => int, 'skipped' => int, 'error' => string|null ]
+     */
+    public function run_revoke_inactive_zoom_licenses() {
+        $result = ['revoked' => 0, 'skipped' => 0, 'error' => null];
+        if ($this->config->platform != $this::PLATFORM_ZOOM || empty($this->config->zoom_revoke_inactive_license)) {
+            return $result;
+        }
+        $sixhoursago = time() - (self::ZOOM_REVOKE_LAST_LOGIN_HOURS * 3600);
+        $usersinmeeting = $this->get_zoom_live_meeting_participant_user_ids();
+        if ($usersinmeeting === null) {
+            $result['error'] = 'Could not fetch live meeting participants; skipping revoke run.';
+            return $result;
+        }
+        $usersinmeeting = array_flip($usersinmeeting);
+        $nexttoken = '';
+        do {
+            $url = 'users?page_size=300&status=active';
+            if ($nexttoken !== '') {
+                $url .= '&next_page_token=' . urlencode($nexttoken);
+            }
+            $response = $this->call_zoom_api($url, [], 'get', false, true);
+            if (empty($response->users) && empty($response->total_records)) {
+                if (!empty($response->message)) {
+                    $result['error'] = $response->message;
+                }
+                break;
+            }
+            foreach ($response->users as $user) {
+                if (isset($user->type) && (int) $user->type !== 2) {
+                    continue;
+                }
+                $uid = $user->id;
+                if (isset($usersinmeeting[$uid])) {
+                    $result['skipped']++;
+                    continue;
+                }
+                $detail = $this->get_zoom_user($uid);
+                if (!$detail) {
+                    $result['skipped']++;
+                    continue;
+                }
+                $lastlogin = null;
+                if (!empty($detail->last_login_time)) {
+                    $lastlogin = strtotime($detail->last_login_time);
+                }
+                if ($lastlogin !== null && $lastlogin > $sixhoursago) {
+                    $result['skipped']++;
+                    continue;
+                }
+                $scheduled = $this->get_zoom_user_scheduled_meetings_next_hours($uid, 2);
+                if (!empty($scheduled)) {
+                    $result['skipped']++;
+                    continue;
+                }
+                if ($this->revoke_zoom_user_license($uid)) {
+                    $result['revoked']++;
+                    mtrace('Revoked Zoom license for user: ' . ($detail->email ?? $uid));
+                } else {
+                    $result['skipped']++;
+                }
+            }
+            $nexttoken = isset($response->next_page_token) ? $response->next_page_token : '';
+        } while ($nexttoken !== '');
+
         return $result;
     }
 

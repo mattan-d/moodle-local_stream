@@ -142,3 +142,6 @@ $string['zoom_stats_basic_users'] = 'Users without license';
 $string['zoom_stats_storage_used'] = 'Storage used (cloud recordings)';
 $string['zoom_stats_storage_gb'] = '{$a->gb} GB';
 $string['zoom_stats_storage_na'] = 'Not available';
+$string['zoom_revoke_inactive_license'] = 'Revoke license from inactive users';
+$string['zoom_revoke_inactive_license_desc'] = 'When enabled (Zoom only), a scheduled task will set licensed users to Basic when: (1) last login was at least 6 hours ago, (2) the user is not currently in a meeting, and (3) the user has no meeting scheduled in the next 2 hours. Frees licenses for reassignment. Requires Zoom scopes: user:read:admin, user:write:admin; dashboard_meetings:read:admin is required to detect users in live meetings.';
+$string['revoke_zoom_license_task'] = 'Revoke Zoom license from inactive users';
