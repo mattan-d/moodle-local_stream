@@ -145,13 +145,13 @@ In most cases, teachers do **not** need to manage the plugin directly. Typical w
 
 If problems continue, enable debugging in Moodle, run the `local_stream\task\embed` scheduled task manually (via CLI or scheduled tasks page), and review the log output for error messages.
 
-# Stream Integration Moodle Plugin
+# Stream Moodle Plugin
 
-![Stream Logo](https://centricstream.co.il/images/logo.svg)
+![Stream Logo](https://stream-platform.cloud/images/centricapp.svg)
 
 [![Maintained by Mattan Dor (CentricApp)](https://img.shields.io/badge/Maintained%20by-Mattan%20Dor%20(CentricApp)-brightgreen)](https://centricapp.co.il)
 
-Stream Integration is a powerful Moodle plugin designed to synchronize and embed meetings from Zoom, Webex, and Teams directly into your Moodle courses. Enhance your online learning environment by seamlessly connecting with Stream, a comprehensive video platform optimized for academic use.
+Stream is a powerful Moodle plugin designed to synchronize and embed meetings from Zoom, Webex, and Teams directly into your Moodle courses. Enhance your online learning environment by seamlessly connecting with Stream, a comprehensive video platform optimized for academic use.
 
 ## Features
 
@@ -192,17 +192,17 @@ Stream Integration is a powerful Moodle plugin designed to synchronize and embed
 
 ## Installation and Setup
 
-1. **Download and Install**: Obtain the Stream Integration plugin from the Moodle plugins directory.
+1. **Download and Install**: Obtain the Stream plugin from the Moodle plugins directory.
 2. **Configuration**: Follow the detailed setup guide to configure the plugin for your institution's needs.
 3. **Connect Platforms**: Link your Zoom, Webex, and Teams accounts to start syncing meetings.
 4. **Embed and Enjoy**: Meetings will automatically be embedded into your Moodle courses, ready for immediate use.
 
 ## Support and Inquiries
 
-For assistance with installation, configuration, or any other inquiries, please [contact us](https://stream-platform.cloud/en/) via our contact form or email. Our dedicated team is ready to provide personalized support to ensure a smooth integration experience.
+For assistance with installation, configuration, or any other inquiries, please [contact us](https://stream-platform.cloud/) via our contact form or email. Our dedicated team is ready to provide personalized support to ensure a smooth integration experience.
 
-**Stream Integration © 2024**
+**Stream © 2024**
 
 ---
 
-Transform your Moodle environment with the Stream Integration plugin and provide an enriched, streamlined educational experience for both instructors and students.
+Transform your Moodle environment with the Stream plugin and provide an enriched, streamlined educational experience for both instructors and students.
