@@ -63,5 +63,18 @@ function xmldb_local_stream_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2025022000, 'local', 'stream');
     }
 
+    if ($oldversion < 2025022600) {
+        $table = new xmldb_table('local_stream_rec');
+        $field1 = new xmldb_field('embedded_at', XMLDB_TYPE_INTEGER, '10', null, null, null, 0);
+        $field2 = new xmldb_field('zoom_cloud_deleted', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, 0);
+        if (!$dbman->field_exists($table, $field1)) {
+            $dbman->add_field($table, $field1);
+        }
+        if (!$dbman->field_exists($table, $field2)) {
+            $dbman->add_field($table, $field2);
+        }
+        upgrade_plugin_savepoint(true, 2025022600, 'local', 'stream');
+    }
+
     return true;
 }

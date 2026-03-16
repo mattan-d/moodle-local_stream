@@ -154,6 +154,9 @@ class embed extends \core\task\scheduled_task {
                     $page = $help->add_module($meeting);
                     $meeting->moduleid = $page->id;
                     $meeting->embedded = 1;
+                    if ($help->config->platform == $help::PLATFORM_ZOOM) {
+                        $meeting->embedded_at = time();
+                    }
                     mtrace('NO-PLATFORM: The video with ID #' . $meeting->id . ' was embedded in course #' . $meeting->course .
                             '.');
                 } else {
@@ -209,6 +212,9 @@ class embed extends \core\task\scheduled_task {
                     $meeting->embedded = 1;
                     $meeting->course = $platform->course;
                     $meeting->moduleid = $page->id;
+                    if ($help->config->platform == $help::PLATFORM_ZOOM) {
+                        $meeting->embedded_at = time();
+                    }
                     mtrace('The video with ID #' . $meeting->id . ' was embedded in course #' . $platform->course . '.');
                 }
             }

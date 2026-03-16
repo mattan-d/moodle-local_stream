@@ -63,6 +63,25 @@ class delete extends \core\task\scheduled_task {
             $DB->update_record('local_stream_rec', $meeting);
         }
 
+        // Zoom: delete recording from Zoom cloud X hours after embedding (if configured).
+        if ($help->config->platform == $help::PLATFORM_ZOOM && !empty($help->config->zoom_delete_after_hours)) {
+            $hours = (int) $help->config->zoom_delete_after_hours;
+            $deadline = time() - ($hours * 3600);
+            $meetings = $DB->get_records_sql(
+                "SELECT * FROM {local_stream_rec}
+                 WHERE embedded = 1 AND embedded_at > 0 AND embedded_at <= ?
+                 AND zoom_cloud_deleted = 0",
+                [$deadline]
+            );
+            foreach ($meetings as $meeting) {
+                if ($help->delete_zoom_cloud_recording($meeting)) {
+                    $meeting->zoom_cloud_deleted = 1;
+                    $DB->update_record('local_stream_rec', $meeting);
+                    mtrace('Zoom cloud recording #' . $meeting->id . ' deleted from Zoom.');
+                }
+            }
+        }
+
         // Unicko.
         if ($help->config->platform == $help::PLATFORM_UNICKO && $help->config->daystocleanup > 0) {
 

@@ -146,6 +146,18 @@ if ($hassiteconfig) {
             get_string('clientsecret', 'local_stream'), '', ''));
     $settings->hide_if('local_stream/clientsecret', 'local_stream/platform', 'in', '1|2|3');
 
+    $options = [
+        0 => get_string('never', 'local_stream'),
+        1 => '1 ' . get_string('hours', 'local_stream'),
+        3 => '3 ' . get_string('hours', 'local_stream'),
+        6 => '6 ' . get_string('hours', 'local_stream'),
+        12 => '12 ' . get_string('hours', 'local_stream'),
+    ];
+    $settings->add(new admin_setting_configselect('local_stream/zoom_delete_after_hours',
+            get_string('zoom_delete_after_hours', 'local_stream'),
+            get_string('zoom_delete_after_hours_desc', 'local_stream'), 0, $options));
+    $settings->hide_if('local_stream/zoom_delete_after_hours', 'local_stream/platform', 'in', '1|2|3');
+
     // Embedding.
     $settings->add(new admin_setting_heading('embeddingsettings', get_string('embeddingsettings', 'local_stream'), ''));
 

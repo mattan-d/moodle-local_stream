@@ -273,6 +273,31 @@ class local_stream_help {
     }
 
     /**
+     * Delete a Zoom cloud recording via Zoom API.
+     * Used when "Delete Zoom recording after embedding" is set (e.g. 1, 3, 6, 12 hours).
+     *
+     * @param stdClass $meeting local_stream_rec record with meetingdata (json) and recordingid.
+     * @return bool True if delete requested successfully (204), false otherwise.
+     */
+    public function delete_zoom_cloud_recording($meeting) {
+        $meetingdata = is_string($meeting->meetingdata) ? json_decode($meeting->meetingdata) : $meeting->meetingdata;
+        if (empty($meetingdata->uuid) || empty($meeting->recordingid)) {
+            mtrace('delete_zoom_cloud_recording: missing uuid or recordingid for record #' . $meeting->id);
+            return false;
+        }
+        $url = 'meetings/' . $this->encode_uuid($meetingdata->uuid) . '/recordings/' . $meeting->recordingid;
+        $info = $this->call_zoom_api($url, [], 'delete', true, true);
+        // Zoom returns 204 No Content on success.
+        if (is_array($info) && isset($info['http_code']) && (int) $info['http_code'] === 204) {
+            return true;
+        }
+        if (is_object($info) && !empty($info->message)) {
+            mtrace('delete_zoom_cloud_recording: Zoom API error for record #' . $meeting->id . ': ' . $info->message);
+        }
+        return false;
+    }
+
+    /**
      * Call the Webex API.
      *
      * This method sends a request to the Webex API and returns the response.
