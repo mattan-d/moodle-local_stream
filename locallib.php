@@ -324,10 +324,11 @@ class local_stream_help {
     }
 
     /**
-     * Fetch Zoom account statistics (users count, licensed vs basic, storage usage).
+     * Fetch Zoom account statistics (users count, licensed vs basic, licenses in account, storage usage).
      * Requires Zoom platform to be configured and scopes: user:read:admin, report:read:admin (for storage).
+     * Total licenses in account may require billing/plan scope (e.g. account:read:admin or billing:read).
      *
-     * @return stdClass { total_users, licensed_users, basic_users, storage_used_gb, storage_total_gb, error }
+     * @return stdClass { total_users, licensed_users, basic_users, total_licenses_in_account, storage_used_gb, storage_total_gb, error }
      */
     public function get_zoom_account_stats() {
         $result = (object) [
