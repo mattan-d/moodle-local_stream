@@ -140,6 +140,7 @@ $string['zoom_stats_value'] = 'ערך';
 $string['zoom_stats_total_users'] = 'סך המשתמשים';
 $string['zoom_stats_licensed_users'] = 'משתמשים עם רישיון';
 $string['zoom_stats_basic_users'] = 'משתמשים ללא רישיון';
+$string['zoom_stats_total_licenses'] = 'רישיונות בחשבון';
 $string['zoom_stats_storage_used'] = 'נפח אחסון בשימוש (הקלטות ענן)';
 $string['zoom_stats_storage_gb'] = '{$a->gb} GB';
 $string['zoom_stats_storage_na'] = 'לא זמין';

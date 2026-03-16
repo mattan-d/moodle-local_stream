@@ -65,6 +65,18 @@ $table->data = [
     [get_string('zoom_stats_basic_users', 'local_stream'), $stats->basic_users],
 ];
 
+if (isset($stats->total_licenses_in_account) && $stats->total_licenses_in_account !== null) {
+    $table->data[] = [
+        get_string('zoom_stats_total_licenses', 'local_stream'),
+        $stats->total_licenses_in_account,
+    ];
+} else {
+    $table->data[] = [
+        get_string('zoom_stats_total_licenses', 'local_stream'),
+        get_string('zoom_stats_storage_na', 'local_stream'),
+    ];
+}
+
 if ($stats->storage_used_gb !== null) {
     $table->data[] = [
         get_string('zoom_stats_storage_used', 'local_stream'),

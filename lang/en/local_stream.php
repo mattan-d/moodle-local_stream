@@ -139,6 +139,7 @@ $string['zoom_stats_value'] = 'Value';
 $string['zoom_stats_total_users'] = 'Total users';
 $string['zoom_stats_licensed_users'] = 'Users with license';
 $string['zoom_stats_basic_users'] = 'Users without license';
+$string['zoom_stats_total_licenses'] = 'Licenses in account';
 $string['zoom_stats_storage_used'] = 'Storage used (cloud recordings)';
 $string['zoom_stats_storage_gb'] = '{$a->gb} GB';
 $string['zoom_stats_storage_na'] = 'Not available';

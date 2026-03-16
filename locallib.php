@@ -334,6 +334,7 @@ class local_stream_help {
             'total_users' => 0,
             'licensed_users' => 0,
             'basic_users' => 0,
+            'total_licenses_in_account' => null,
             'storage_used_gb' => null,
             'storage_total_gb' => null,
             'error' => null,
@@ -343,6 +344,26 @@ class local_stream_help {
             return $result;
         }
         try {
+            if (!empty($this->config->accountid)) {
+                $plans = $this->call_zoom_api('accounts/' . $this->config->accountid . '/plans', [], 'get', false, true);
+                if ($plans && empty($plans->message)) {
+                    if (isset($plans->plans) && is_array($plans->plans)) {
+                        foreach ($plans->plans as $plan) {
+                            if (isset($plan->plan_user_count) && $plan->plan_user_count !== null) {
+                                $result->total_licenses_in_account = (int) $plan->plan_user_count;
+                                break;
+                            }
+                            if (isset($plan->hosts) && $plan->hosts !== null) {
+                                $result->total_licenses_in_account = (int) $plan->hosts;
+                                break;
+                            }
+                        }
+                    }
+                    if ($result->total_licenses_in_account === null && isset($plans->plan_user_count)) {
+                        $result->total_licenses_in_account = (int) $plans->plan_user_count;
+                    }
+                }
+            }
             $nexttoken = '';
             do {
                 $url = 'users?page_size=300&status=active';
