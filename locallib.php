@@ -298,6 +298,112 @@ class local_stream_help {
     }
 
     /**
+     * Parse Zoom storage string (e.g. "1 GB", "29 MB") to GB (float).
+     *
+     * @param string $s Value such as "1 GB" or "29 MB".
+     * @return float|null GB value or null if unparseable.
+     */
+    public function parse_zoom_storage_string($s) {
+        if (!is_string($s) || trim($s) === '') {
+            return null;
+        }
+        $s = trim($s);
+        if (preg_match('/^[\d.,]+$/', $s)) {
+            return (float) str_replace(',', '.', $s);
+        }
+        if (preg_match('/^([\d.,]+)\s*(GB|MB|KB)$/i', $s, $m)) {
+            $num = (float) str_replace(',', '.', $m[1]);
+            switch (strtoupper($m[2])) {
+                case 'GB': return $num;
+                case 'MB': return $num / 1024;
+                case 'KB': return $num / (1024 * 1024);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Fetch Zoom account statistics (users count, licensed vs basic, storage usage).
+     * Requires Zoom platform to be configured and scopes: user:read:admin, report:read:admin (for storage).
+     *
+     * @return stdClass { total_users, licensed_users, basic_users, storage_used_gb, storage_total_gb, error }
+     */
+    public function get_zoom_account_stats() {
+        $result = (object) [
+            'total_users' => 0,
+            'licensed_users' => 0,
+            'basic_users' => 0,
+            'storage_used_gb' => null,
+            'storage_total_gb' => null,
+            'error' => null,
+        ];
+        if ($this->config->platform != $this::PLATFORM_ZOOM) {
+            $result->error = 'not_zoom';
+            return $result;
+        }
+        try {
+            $nexttoken = '';
+            do {
+                $url = 'users?page_size=300&status=active';
+                if ($nexttoken !== '') {
+                    $url .= '&next_page_token=' . urlencode($nexttoken);
+                }
+                $response = $this->call_zoom_api($url, [], 'get', false, true);
+                if (empty($response->users) && empty($response->total_records)) {
+                    if (!empty($response->message)) {
+                        $result->error = $response->message;
+                        return $result;
+                    }
+                    break;
+                }
+                foreach ($response->users as $user) {
+                    $result->total_users++;
+                    $type = isset($user->type) ? (int) $user->type : 1;
+                    if ($type === 2) {
+                        $result->licensed_users++;
+                    } else {
+                        $result->basic_users++;
+                    }
+                }
+                $nexttoken = isset($response->next_page_token) ? $response->next_page_token : '';
+            } while ($nexttoken !== '');
+
+            $to = date('Y-m-d', strtotime('-1 day'));
+            $from = date('Y-m-d', strtotime('-30 days'));
+            $reporturl = 'report/cloud_recording?from=' . $from . '&to=' . $to;
+            $report = $this->call_zoom_api($reporturl, [], 'get', false, true);
+            if (!empty($report->message)) {
+                $result->storage_used_gb = null;
+            } else if (!empty($report->cloud_recording_storage)) {
+                $last = end($report->cloud_recording_storage);
+                $usedgb = null;
+                if (isset($last->usage) && $last->usage !== '') {
+                    $usedgb = $this->parse_zoom_storage_string($last->usage);
+                }
+                if ($usedgb === null && (isset($last->plan_usage) || isset($last->free_usage))) {
+                    $usedgb = 0;
+                    if (isset($last->plan_usage)) {
+                        $p = $this->parse_zoom_storage_string($last->plan_usage);
+                        if ($p !== null) {
+                            $usedgb += $p;
+                        }
+                    }
+                    if (isset($last->free_usage)) {
+                        $f = $this->parse_zoom_storage_string($last->free_usage);
+                        if ($f !== null) {
+                            $usedgb += $f;
+                        }
+                    }
+                }
+                $result->storage_used_gb = $usedgb !== null ? round($usedgb, 2) : null;
+            }
+        } catch (\Exception $e) {
+            $result->error = $e->getMessage();
+        }
+        return $result;
+    }
+
+    /**
      * Call the Webex API.
      *
      * This method sends a request to the Webex API and returns the response.

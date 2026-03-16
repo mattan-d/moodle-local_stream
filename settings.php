@@ -158,6 +158,12 @@ if ($hassiteconfig) {
             get_string('zoom_delete_after_hours_desc', 'local_stream'), 0, $options));
     $settings->hide_if('local_stream/zoom_delete_after_hours', 'local_stream/platform', 'in', '1|2|3');
 
+    $zoomstatsurl = new moodle_url('/local/stream/zoom_stats.php');
+    $settings->add(new admin_setting_heading('local_stream/zoom_account_stats',
+            get_string('zoom_account_stats', 'local_stream'),
+            get_string('zoom_account_stats_heading_desc', 'local_stream', $zoomstatsurl->out(false))));
+    $settings->hide_if('local_stream/zoom_account_stats', 'local_stream/platform', 'in', '1|2|3');
+
     // Embedding.
     $settings->add(new admin_setting_heading('embeddingsettings', get_string('embeddingsettings', 'local_stream'), ''));
 
@@ -196,6 +202,10 @@ if ($hassiteconfig) {
 
 // This adds the settings link to the folder/submenu.
 $ADMIN->add('localstreamfolder', $settings);
+
+// Zoom account statistics (only relevant when platform is Zoom; page redirects if not).
+$ADMIN->add('localstreamfolder', new admin_externalpage('local_stream_zoom_stats',
+        get_string('zoom_account_stats', 'local_stream'), new moodle_url('/local/stream/zoom_stats.php')));
 
 // This adds a link to an external page.
 $ADMIN->add('localstreamfolder', new admin_externalpage('local_stream',
