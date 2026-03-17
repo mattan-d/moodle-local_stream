@@ -148,3 +148,5 @@ $string['zoom_revoke_inactive_license_desc'] = 'When enabled (Zoom only), a sche
 $string['revoke_zoom_license_task'] = 'Revoke Zoom license from inactive users';
 $string['zoom_auto_license_teachers_first_login'] = 'Auto-license teachers on first login';
 $string['zoom_auto_license_teachers_first_login_desc'] = 'Zoom only: when a user with the Teacher or Editing teacher role logs in for the first time, the plugin will check their Zoom user by email and assign a Licensed account if they are not already licensed. This runs only once per user.';
+$string['zoom_auto_license_roles'] = 'Roles eligible for auto-licensing';
+$string['zoom_auto_license_roles_desc'] = 'Select which Moodle roles should receive a Zoom license automatically on first login (when enabled).';

@@ -58,12 +58,17 @@ class observer {
             return;
         }
 
-        // Only apply to users that have a teacher or editingteacher role assignment.
-        $roles = $DB->get_records_list('role', 'shortname', ['teacher', 'editingteacher'], '', 'id, shortname');
-        if (!$roles) {
+        $roleids = [];
+        if (!empty($help->config->zoom_auto_license_roles)) {
+            if (is_array($help->config->zoom_auto_license_roles)) {
+                $roleids = array_map('intval', $help->config->zoom_auto_license_roles);
+            } else {
+                $roleids = array_filter(array_map('intval', explode(',', (string) $help->config->zoom_auto_license_roles)));
+            }
+        }
+        if (empty($roleids)) {
             return;
         }
-        $roleids = array_keys($roles);
 
         list($insql, $inparams) = $DB->get_in_or_equal($roleids);
         $sql = "SELECT 1

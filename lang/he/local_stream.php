@@ -149,3 +149,5 @@ $string['zoom_revoke_inactive_license_desc'] = 'כאשר מופעל (רק Zoom),
 $string['revoke_zoom_license_task'] = 'הורדת רישיון Zoom ממשתמשים לא פעילים';
 $string['zoom_auto_license_teachers_first_login'] = 'מתן רישיון למורים בכניסה ראשונה';
 $string['zoom_auto_license_teachers_first_login_desc'] = 'רק Zoom: כאשר משתמש עם תפקיד מורה או מורה עורך נכנס בפעם הראשונה, התוסף בודק את המשתמש ב-Zoom לפי אימייל ואם אין לו רישוי — מקצה רישוי (Licensed). רץ פעם אחת בלבד לכל משתמש.';
+$string['zoom_auto_license_roles'] = 'תפקידים לזכאות לרישוי אוטומטי';
+$string['zoom_auto_license_roles_desc'] = 'בחר אילו תפקידי Moodle יקבלו רישוי Zoom אוטומטית בכניסה ראשונה (כאשר מופעל).';

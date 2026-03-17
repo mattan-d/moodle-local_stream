@@ -25,6 +25,7 @@
 defined('MOODLE_INTERNAL') || die;
 
 require_once(__DIR__ . '/locallib.php');
+require_once($CFG->libdir . '/accesslib.php');
 
 $help = new local_stream_help();
 
@@ -173,6 +174,26 @@ if ($hassiteconfig) {
             get_string('zoom_auto_license_teachers_first_login', 'local_stream'),
             get_string('zoom_auto_license_teachers_first_login_desc', 'local_stream'), 0));
     $settings->hide_if('local_stream/zoom_auto_license_teachers_first_login', 'local_stream/platform', 'in', '1|2|3');
+
+    $allroles = get_all_roles();
+    $roleoptions = [];
+    foreach ($allroles as $role) {
+        $roleoptions[$role->id] = role_get_name($role) . ' (' . $role->shortname . ')';
+    }
+    $defaults = [];
+    foreach (['teacher', 'editingteacher'] as $shortname) {
+        foreach ($allroles as $role) {
+            if ($role->shortname === $shortname) {
+                $defaults[] = $role->id;
+            }
+        }
+    }
+    $settings->add(new admin_setting_configmultiselect('local_stream/zoom_auto_license_roles',
+            get_string('zoom_auto_license_roles', 'local_stream'),
+            get_string('zoom_auto_license_roles_desc', 'local_stream'),
+            $defaults, $roleoptions));
+    $settings->hide_if('local_stream/zoom_auto_license_roles', 'local_stream/platform', 'in', '1|2|3');
+    $settings->hide_if('local_stream/zoom_auto_license_roles', 'local_stream/zoom_auto_license_teachers_first_login', 'eq', 0);
 
     // Embedding.
     $settings->add(new admin_setting_heading('embeddingsettings', get_string('embeddingsettings', 'local_stream'), ''));
