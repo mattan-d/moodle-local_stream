@@ -146,3 +146,5 @@ $string['zoom_stats_storage_na'] = 'Not available';
 $string['zoom_revoke_inactive_license'] = 'Revoke license from inactive users';
 $string['zoom_revoke_inactive_license_desc'] = 'When enabled (Zoom only), a scheduled task will set licensed users to Basic when: (1) last login was at least 6 hours ago, (2) the user is not currently in a meeting, and (3) the user has no meeting scheduled in the next 2 hours. Frees licenses for reassignment. Requires Zoom scopes: user:read:admin, user:write:admin; dashboard_meetings:read:admin is required to detect users in live meetings.';
 $string['revoke_zoom_license_task'] = 'Revoke Zoom license from inactive users';
+$string['zoom_auto_license_teachers_first_login'] = 'Auto-license teachers on first login';
+$string['zoom_auto_license_teachers_first_login_desc'] = 'Zoom only: when a user with the Teacher or Editing teacher role logs in for the first time, the plugin will check their Zoom user by email and assign a Licensed account if they are not already licensed. This runs only once per user.';

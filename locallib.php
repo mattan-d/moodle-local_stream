@@ -533,6 +533,24 @@ class local_stream_help {
         return true;
     }
 
+    /**
+     * Grant Zoom license: set user type to Licensed (2). Requires user:write:admin.
+     *
+     * @param string $userid Zoom user id or email.
+     * @return bool True on success.
+     */
+    public function grant_zoom_user_license($userid) {
+        if ($this->config->platform != $this::PLATFORM_ZOOM) {
+            return false;
+        }
+        $response = $this->call_zoom_api('users/' . $userid, ['type' => 2], 'patch', false, true);
+        if ($response === null || !empty($response->message)) {
+            mtrace('grant_zoom_user_license: ' . ($response->message ?? 'unknown error') . ' for user ' . $userid);
+            return false;
+        }
+        return true;
+    }
+
     /** Minimum hours since last login to allow revoke. */
     const ZOOM_REVOKE_LAST_LOGIN_HOURS = 6;
 

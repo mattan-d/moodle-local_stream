@@ -147,3 +147,5 @@ $string['zoom_stats_storage_na'] = 'לא זמין';
 $string['zoom_revoke_inactive_license'] = 'הורדת רישיון ממשתמשים לא פעילים';
 $string['zoom_revoke_inactive_license_desc'] = 'כאשר מופעל (רק Zoom), משימה מתוזמנת תהפוך משתמשים עם רישיון ל-Basic כאשר: (1) ההתחברות האחרונה הייתה לפני לפחות 6 שעות, (2) המשתמש לא נמצא כעת בפגישה, ו-(3) אין למשתמש פגישה מתוכננת ב-2 השעות הקרובות. משחרר רישיונות להקצאה מחדש. נדרשים scopes ב-Zoom: user:read:admin, user:write:admin; dashboard_meetings:read:admin נדרש לזיהוי משתמשים בפגישות חיות.';
 $string['revoke_zoom_license_task'] = 'הורדת רישיון Zoom ממשתמשים לא פעילים';
+$string['zoom_auto_license_teachers_first_login'] = 'מתן רישיון למורים בכניסה ראשונה';
+$string['zoom_auto_license_teachers_first_login_desc'] = 'רק Zoom: כאשר משתמש עם תפקיד מורה או מורה עורך נכנס בפעם הראשונה, התוסף בודק את המשתמש ב-Zoom לפי אימייל ואם אין לו רישוי — מקצה רישוי (Licensed). רץ פעם אחת בלבד לכל משתמש.';
