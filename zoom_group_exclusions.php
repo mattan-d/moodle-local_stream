@@ -91,12 +91,15 @@ foreach ($groups as $g) {
     $gid = (string) ($g->id ?? '');
     $gname = (string) ($g->name ?? $gid);
     $checked = isset($selected[$gid]);
-    $checkbox = html_writer::empty_tag('input', [
+    $attrs = [
         'type' => 'checkbox',
         'name' => 'groupids[]',
         'value' => $gid,
-        $checked ? 'checked' : 'data-unchecked' => $checked ? 'checked' : '0',
-    ]);
+    ];
+    if ($checked) {
+        $attrs['checked'] = 'checked';
+    }
+    $checkbox = html_writer::empty_tag('input', $attrs);
     $table->data[] = [$checkbox, s($gname), s($gid)];
 }
 
