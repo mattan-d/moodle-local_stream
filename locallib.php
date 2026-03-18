@@ -444,6 +444,56 @@ class local_stream_help {
     }
 
     /**
+     * List Zoom groups.
+     *
+     * @return array|null Array of group objects or null on error (e.g. missing scope group:read:admin).
+     */
+    public function get_zoom_groups() {
+        if ($this->config->platform != $this::PLATFORM_ZOOM) {
+            return [];
+        }
+        $response = $this->call_zoom_api('groups?page_size=300', [], 'get', false, true);
+        if ($response === null || !empty($response->message)) {
+            return null;
+        }
+        return isset($response->groups) && is_array($response->groups) ? $response->groups : [];
+    }
+
+    /**
+     * Get Zoom group members user IDs.
+     *
+     * @param string $groupid Zoom group id.
+     * @return array|null Array of user ids in group, or null on error.
+     */
+    public function get_zoom_group_member_user_ids($groupid) {
+        if ($this->config->platform != $this::PLATFORM_ZOOM || $groupid === '') {
+            return [];
+        }
+        $userids = [];
+        $nexttoken = '';
+        do {
+            $url = 'groups/' . $groupid . '/members?page_size=300';
+            if ($nexttoken !== '') {
+                $url .= '&next_page_token=' . urlencode($nexttoken);
+            }
+            $response = $this->call_zoom_api($url, [], 'get', false, true);
+            if ($response === null || !empty($response->message)) {
+                return null;
+            }
+            if (!empty($response->members) && is_array($response->members)) {
+                foreach ($response->members as $m) {
+                    if (!empty($m->id)) {
+                        $userids[(string) $m->id] = true;
+                    }
+                }
+            }
+            $nexttoken = isset($response->next_page_token) ? $response->next_page_token : '';
+        } while ($nexttoken !== '');
+
+        return array_keys($userids);
+    }
+
+    /**
      * Get set of Zoom user ids that are currently in a live meeting (dashboard API).
      * Returns null if API fails (e.g. missing scope dashboard_meetings:read:admin).
      *
@@ -565,6 +615,24 @@ class local_stream_help {
         if ($this->config->platform != $this::PLATFORM_ZOOM || empty($this->config->zoom_revoke_inactive_license)) {
             return $result;
         }
+
+        // Exclude users that belong to selected Zoom groups.
+        $excludedusers = [];
+        $excludedcsv = (string) ($this->config->zoom_revoke_excluded_groupids ?? '');
+        $excludedgroupids = $excludedcsv !== '' ? array_filter(array_map('trim', explode(',', $excludedcsv))) : [];
+        if (!empty($excludedgroupids)) {
+            foreach ($excludedgroupids as $gid) {
+                $members = $this->get_zoom_group_member_user_ids($gid);
+                if ($members === null) {
+                    $result['error'] = 'Could not fetch Zoom group members for exclusions; skipping revoke run.';
+                    return $result;
+                }
+                foreach ($members as $uid) {
+                    $excludedusers[(string) $uid] = true;
+                }
+            }
+        }
+
         $sixhoursago = time() - (self::ZOOM_REVOKE_LAST_LOGIN_HOURS * 3600);
         $usersinmeeting = $this->get_zoom_live_meeting_participant_user_ids();
         if ($usersinmeeting === null) {
@@ -590,6 +658,10 @@ class local_stream_help {
                     continue;
                 }
                 $uid = $user->id;
+                if (!empty($excludedusers) && isset($excludedusers[(string) $uid])) {
+                    $result['skipped']++;
+                    continue;
+                }
                 if (isset($usersinmeeting[$uid])) {
                     $result['skipped']++;
                     continue;

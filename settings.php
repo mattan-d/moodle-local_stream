@@ -170,6 +170,13 @@ if ($hassiteconfig) {
             get_string('zoom_revoke_inactive_license_desc', 'local_stream'), 0));
     $settings->hide_if('local_stream/zoom_revoke_inactive_license', 'local_stream/platform', 'in', '1|2|3');
 
+    $zoomgroupsurl = new moodle_url('/local/stream/zoom_group_exclusions.php');
+    $settings->add(new admin_setting_heading('local_stream/zoom_revoke_excluded_groups',
+            get_string('zoom_revoke_excluded_groups', 'local_stream'),
+            get_string('zoom_revoke_excluded_groups_heading_desc', 'local_stream', $zoomgroupsurl->out(false))));
+    $settings->hide_if('local_stream/zoom_revoke_excluded_groups', 'local_stream/platform', 'in', '1|2|3');
+    $settings->hide_if('local_stream/zoom_revoke_excluded_groups', 'local_stream/zoom_revoke_inactive_license', 'eq', 0);
+
     $settings->add(new admin_setting_configcheckbox('local_stream/zoom_auto_license_teachers_first_login',
             get_string('zoom_auto_license_teachers_first_login', 'local_stream'),
             get_string('zoom_auto_license_teachers_first_login_desc', 'local_stream'), 0));
@@ -237,6 +244,10 @@ $ADMIN->add('localstreamfolder', $settings);
 // Zoom account statistics (only relevant when platform is Zoom; page redirects if not).
 $ADMIN->add('localstreamfolder', new admin_externalpage('local_stream_zoom_stats',
         get_string('zoom_account_stats', 'local_stream'), new moodle_url('/local/stream/zoom_stats.php')));
+
+// Zoom groups exclusions for revoke mechanism.
+$ADMIN->add('localstreamfolder', new admin_externalpage('local_stream_zoom_group_exclusions',
+        get_string('zoom_revoke_excluded_groups', 'local_stream'), new moodle_url('/local/stream/zoom_group_exclusions.php')));
 
 // This adds a link to an external page.
 $ADMIN->add('localstreamfolder', new admin_externalpage('local_stream',
