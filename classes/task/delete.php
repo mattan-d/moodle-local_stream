@@ -65,6 +65,14 @@ class delete extends \core\task\scheduled_task {
 
         // Zoom: delete recording from Zoom cloud X hours after embedding (if configured).
         if ($help->config->platform == $help::PLATFORM_ZOOM && !empty($help->config->zoom_delete_after_hours)) {
+            $dbman = $DB->get_manager();
+            $table = new \xmldb_table('local_stream_rec');
+            $hasembeddedat = $dbman->field_exists($table, new \xmldb_field('embedded_at'));
+            $haszoomdeleted = $dbman->field_exists($table, new \xmldb_field('zoom_cloud_deleted'));
+            if (!$hasembeddedat || !$haszoomdeleted) {
+                mtrace('local_stream: missing DB fields (embedded_at / zoom_cloud_deleted). Run plugin upgrade, skipping Zoom cloud deletions.');
+                return true;
+            }
             $hours = (int) $help->config->zoom_delete_after_hours;
             $deadline = time() - ($hours * 3600);
             $meetings = $DB->get_records_sql(
