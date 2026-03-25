@@ -93,6 +93,11 @@ class embed extends \core\task\scheduled_task {
         } else if ($help->config->platform == $help::PLATFORM_UNICKO) {
             $module = $DB->get_record('modules', ['name' => 'lti']);
         }
+        $streammodule = $DB->get_record('modules', ['name' => 'stream']);
+        if (!$streammodule) {
+            mtrace('mod_stream module type not found; cannot embed recordings.');
+            return true;
+        }
 
         foreach ($meetings as $meeting) {
 
@@ -151,14 +156,28 @@ class embed extends \core\task\scheduled_task {
 
             if (!$platform) {
                 if ($meeting->course) {
-                    $page = $help->add_module($meeting);
-                    $meeting->moduleid = $page->id;
-                    $meeting->embedded = 1;
-                    if ($help->config->platform == $help::PLATFORM_ZOOM) {
-                        $meeting->embedded_at = time();
+                    if ($page = $help->add_module($meeting)) {
+                        $source = $DB->get_record('course_modules', [
+                                'course' => $meeting->course,
+                                'module' => $streammodule->id,
+                                'instance' => $page->id,
+                        ]);
+                        if ($source) {
+                            $meeting->moduleid = $page->id;
+                            $meeting->embedded = 1;
+                            if ($help->config->platform == $help::PLATFORM_ZOOM) {
+                                $meeting->embedded_at = time();
+                            }
+                            mtrace('NO-PLATFORM: The video with ID #' . $meeting->id . ' was embedded in course #' . $meeting->course .
+                                    '.');
+                        } else {
+                            $meeting->embedded = 2;
+                            mtrace('NO-PLATFORM: stream course module not found for video #' . $meeting->id . '.');
+                        }
+                    } else {
+                        $meeting->embedded = 2;
+                        mtrace('NO-PLATFORM: failed to create stream activity for video #' . $meeting->id . '.');
                     }
-                    mtrace('NO-PLATFORM: The video with ID #' . $meeting->id . ' was embedded in course #' . $meeting->course .
-                            '.');
                 } else {
                     $meeting->embedded = 2;
                     mtrace('meeting not found.');
@@ -176,7 +195,7 @@ class embed extends \core\task\scheduled_task {
 
                 if ($page = $help->add_module($meeting)) {
                     $source = $DB->get_record('course_modules',
-                            ['course' => $platform->course, 'instance' => $page->id]);
+                            ['course' => $platform->course, 'module' => $streammodule->id, 'instance' => $page->id]);
                     $destination = $DB->get_record('course_modules',
                             ['course' => $platform->course, 'module' => $module->id, 'instance' => $platform->id]);
 
@@ -209,13 +228,21 @@ class embed extends \core\task\scheduled_task {
                         }
                     }
 
-                    $meeting->embedded = 1;
-                    $meeting->course = $platform->course;
-                    $meeting->moduleid = $page->id;
-                    if ($help->config->platform == $help::PLATFORM_ZOOM) {
-                        $meeting->embedded_at = time();
+                    if ($source) {
+                        $meeting->embedded = 1;
+                        $meeting->course = $platform->course;
+                        $meeting->moduleid = $page->id;
+                        if ($help->config->platform == $help::PLATFORM_ZOOM) {
+                            $meeting->embedded_at = time();
+                        }
+                        mtrace('The video with ID #' . $meeting->id . ' was embedded in course #' . $platform->course . '.');
+                    } else {
+                        $meeting->embedded = 2;
+                        mtrace('stream course module not found for video #' . $meeting->id . ' in course #' . $platform->course . '.');
                     }
-                    mtrace('The video with ID #' . $meeting->id . ' was embedded in course #' . $platform->course . '.');
+                } else {
+                    $meeting->embedded = 2;
+                    mtrace('failed to create stream activity for video #' . $meeting->id . ' in course #' . $platform->course . '.');
                 }
             }
 
