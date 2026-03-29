@@ -62,6 +62,8 @@ Options:
     --notify            Queue user notification adhoc tasks after each successful embed (like cron)
 -h, --help              Show this help
 
+Runs as the site admin user for capability checks (same idea as other maintenance CLIs).
+
 Examples:
 \$ php local/stream/cli/reembed.php --dry-run
 \$ php local/stream/cli/reembed.php -n
@@ -76,6 +78,9 @@ Examples:
 $removeold = empty($options['no-remove-old']);
 $dryrun = !empty($options['dry-run']);
 $notify = !empty($options['notify']);
+
+// create_module() / course_delete_module() check capabilities against $USER; CLI has no session user by default.
+\core\session\manager::set_user(get_admin());
 
 $help = new local_stream_help();
 $log = function(string $msg): void {
