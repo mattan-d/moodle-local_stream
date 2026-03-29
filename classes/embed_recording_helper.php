@@ -27,6 +27,30 @@ require_once($CFG->dirroot . '/course/lib.php');
 class embed_recording_helper {
 
     /**
+     * Place mod_stream before or after the platform meeting module per local_stream/embedorder (0=above, 1=below).
+     *
+     * @param \local_stream_help $help
+     * @param \stdClass $source Stream course_modules row.
+     * @param \stdClass $destination Platform (zoom/msteams/lti) course_modules row.
+     * @param \stdClass $section Section record for the course (same section as destination).
+     * @return void
+     */
+    protected static function apply_embed_order_relative_to_platform(
+            \local_stream_help $help,
+            \stdClass $source,
+            \stdClass $destination,
+            \stdClass $section
+    ): void {
+        $below = ((int) $help->config->embedorder === 1);
+        if ($below) {
+            moveto_module($source, $section, $destination);
+            moveto_module($destination, $section, $source);
+        } else {
+            moveto_module($source, $section, $destination);
+        }
+    }
+
+    /**
      * Embed one ready recording (same rules as scheduled embed task).
      *
      * @param \local_stream_help $help Plugin helper.
@@ -81,6 +105,7 @@ class embed_recording_helper {
 
         if ($help->config->platform == $help::PLATFORM_TEAMS) {
             $pattern = '/^.*:meeting_([A-Za-z0-9]+)@thread\.v2$/';
+            $teamsinstanceid = null;
             if (preg_match($pattern, $meeting->recordingid, $matches)) {
                 $tmpmeetingid = $matches[1];
                 $logfn('checking meeting: ' . $meeting->recordingid);
@@ -89,12 +114,16 @@ class embed_recording_helper {
                         "SELECT id, course FROM {msteams} WHERE {$likesql}",
                         ['externalurl' => '%' . $tmpmeetingid . '%']
                 );
+                if ($platform) {
+                    $teamsinstanceid = $platform->id;
+                }
             }
 
             $details = $help->teams_course_data($meeting->topic);
             if ($details['courseid'] > 0) {
                 $platform = new \stdClass();
                 $platform->course = $details['courseid'];
+                $platform->id = $teamsinstanceid;
             }
         }
 
@@ -111,6 +140,25 @@ class embed_recording_helper {
                             'instance' => $page->id,
                     ]);
                     if ($source) {
+                        if ($help->config->platform == $help::PLATFORM_ZOOM && $platformmodule) {
+                            $zoominstance = $DB->get_record('zoom', ['meeting_id' => $meeting->meetingid]);
+                            if ($zoominstance) {
+                                $destination = $DB->get_record('course_modules', [
+                                        'course' => $meeting->course,
+                                        'module' => $platformmodule->id,
+                                        'instance' => $zoominstance->id,
+                                ]);
+                                if ($destination) {
+                                    $section = $DB->get_record('course_sections', [
+                                            'course' => $meeting->course,
+                                            'id' => $destination->section,
+                                    ]);
+                                    if ($section) {
+                                        self::apply_embed_order_relative_to_platform($help, $source, $destination, $section);
+                                    }
+                                }
+                            }
+                        }
                         $meeting->moduleid = $page->id;
                         $meeting->embedded = 1;
                         if ($help->config->platform == $help::PLATFORM_ZOOM) {
@@ -162,20 +210,21 @@ class embed_recording_helper {
                     }
 
                     if (isset($details['sectionname']) && $details['sectionname']) {
-                        $section = $DB->get_record('course_sections',
+                        $namedsection = $DB->get_record('course_sections',
                                 ['course' => $platform->course, 'name' => $details['sectionname']]);
 
-                        if ($section && $source) {
-                            moveto_module($source, $section);
+                        if ($namedsection && $source) {
+                            moveto_module($source, $namedsection);
+                            if ($destination) {
+                                $destsection = $DB->get_record('course_sections',
+                                        ['course' => $platform->course, 'id' => $destination->section]);
+                                if ($destsection && (int) $destsection->id === (int) $namedsection->id) {
+                                    self::apply_embed_order_relative_to_platform($help, $source, $destination, $namedsection);
+                                }
+                            }
                         }
-                    } else if ($section && $source) {
-                        if ($destination) {
-                            moveto_module($source, $section, $destination);
-                        }
-
-                        if ($help->config->embedorder == '1' && $destination) {
-                            moveto_module($destination, $section, $source);
-                        }
+                    } else if ($section && $source && $destination) {
+                        self::apply_embed_order_relative_to_platform($help, $source, $destination, $section);
                     }
 
                     if ($source) {
