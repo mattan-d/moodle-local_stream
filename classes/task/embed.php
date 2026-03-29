@@ -27,6 +27,7 @@ namespace local_stream\task;
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/local/stream/locallib.php');
+require_once($CFG->dirroot . '/local/stream/classes/embed_recording_helper.php');
 require_once($CFG->dirroot . '/course/lib.php');
 require_once($CFG->libdir . '/externallib.php');
 
