@@ -1301,6 +1301,106 @@ class local_stream_help {
     }
 
     /**
+     * Remove embedded mod_stream (or one video from a Zoom collection) and clear embed flags on the recording row.
+     *
+     * @param \stdClass $meeting local_stream_rec row (updated when not dry-run).
+     * @param bool $dryrun If true, log only.
+     * @param callable|null $log function(string $msg): void; default mtrace.
+     * @return bool True when done (including nothing to remove).
+     */
+    public function remove_embedded_stream_activity($meeting, $dryrun = false, $log = null) {
+        global $DB;
+
+        $logfn = $log ?? function(string $msg): void {
+            mtrace($msg);
+        };
+
+        if (empty($meeting->moduleid)) {
+            return true;
+        }
+
+        $stream = $DB->get_record('stream', ['id' => (int) $meeting->moduleid]);
+        if (!$stream) {
+            if (!$dryrun) {
+                $meeting->moduleid = 0;
+                $meeting->embedded = 0;
+                $meeting->embedded_at = 0;
+                $DB->update_record('local_stream_rec', $meeting);
+            }
+            $logfn('Recording #' . $meeting->id . ': stream row missing; cleared embed flags.');
+            return true;
+        }
+
+        $cm = get_coursemodule_from_instance('stream', $stream->id, $stream->course);
+
+        if ($this->config->platform == self::PLATFORM_ZOOM && !empty($stream->collection_mode) && !empty($meeting->streamid)) {
+            $ids = [];
+            foreach (explode(',', (string) $stream->identifier) as $part) {
+                $part = trim($part);
+                if ($part !== '') {
+                    $ids[] = $part;
+                }
+            }
+            $target = (string) $meeting->streamid;
+            $pos = false;
+            foreach ($ids as $i => $id) {
+                if ((string) $id === $target) {
+                    $pos = $i;
+                    break;
+                }
+            }
+            if ($pos === false) {
+                if (!$dryrun) {
+                    $meeting->moduleid = 0;
+                    $meeting->embedded = 0;
+                    $meeting->embedded_at = 0;
+                    $DB->update_record('local_stream_rec', $meeting);
+                }
+                $logfn('Recording #' . $meeting->id . ': stream id not in collection; cleared embed flags.');
+                return true;
+            }
+
+            if (count($ids) > 1) {
+                array_splice($ids, $pos, 1);
+                $order = json_decode($stream->video_order ?? '[]', true);
+                if (!is_array($order)) {
+                    $order = [];
+                }
+                $order = array_values(array_filter($order, function($v) use ($target) {
+                    return (string) $v !== $target;
+                }));
+
+                if ($dryrun) {
+                    $logfn('[dry-run] Would remove stream id ' . $target . ' from collection (mod_stream #' . $stream->id . ').');
+                } else {
+                    $stream->identifier = implode(',', $ids);
+                    $stream->video_order = json_encode($order);
+                    $stream->timemodified = time();
+                    $DB->update_record('stream', $stream);
+                    $meeting->moduleid = 0;
+                    $meeting->embedded = 0;
+                    $meeting->embedded_at = 0;
+                    $DB->update_record('local_stream_rec', $meeting);
+                }
+                return true;
+            }
+        }
+
+        if ($dryrun) {
+            $logfn('[dry-run] Would delete mod_stream instance #' . $stream->id . ' (course ' . $stream->course . ').');
+        } else {
+            if ($cm) {
+                course_delete_module($cm->id);
+            }
+            $meeting->moduleid = 0;
+            $meeting->embedded = 0;
+            $meeting->embedded_at = 0;
+            $DB->update_record('local_stream_rec', $meeting);
+        }
+        return true;
+    }
+
+    /**
      * Add a Zoom meeting module to a course.
      *
      * This method creates a new module in the specified course with information from the Zoom meeting.

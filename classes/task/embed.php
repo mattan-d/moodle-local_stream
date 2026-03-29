@@ -54,10 +54,9 @@ class embed extends \core\task\scheduled_task {
      * Execute the task.
      */
     public function execute() {
-        global $DB, $USER;
+        global $DB;
 
         $help = new \local_stream_help();
-        $task = new \local_stream\task\notifications();
         $meetings =
                 $DB->get_records('local_stream_rec', ['embedded' => 0, 'status' => $help::MEETING_STATUS_READY],
                         'timecreated DESC', '*', '0',
@@ -86,6 +85,7 @@ class embed extends \core\task\scheduled_task {
             return true;
         }
 
+        $module = null;
         if ($help->config->platform == $help::PLATFORM_ZOOM) {
             $module = $DB->get_record('modules', ['name' => 'zoom']);
         } else if ($help->config->platform == $help::PLATFORM_TEAMS) {
@@ -100,169 +100,15 @@ class embed extends \core\task\scheduled_task {
         }
 
         foreach ($meetings as $meeting) {
-
-            $platform = false;
-
-            // Zoom.
-            if ($help->config->platform == $help::PLATFORM_ZOOM) {
-                $platform = $DB->get_record('zoom', ['meeting_id' => $meeting->meetingid]);
-            }
-
-            // Unicko.
-            if ($help->config->platform == $help::PLATFORM_UNICKO) {
-                $recordingdata = json_decode($meeting->recordingdata);
-                if (isset($recordingdata->instanceid) && $recordingdata->instanceid) {
-                    $platform = $DB->get_record('course_modules',
-                            ['instance' => $recordingdata->instanceid, 'module' => $module->id]);
-
-                    if ($platform && isset($platform->course)) {
-                        $platform->id = $recordingdata->instanceid;
-                    } else {
-                        $meeting->embedded = 2;
-                        $DB->update_record('local_stream_rec', $meeting);
-
-                        mtrace('The video with ID #' . $meeting->id . ' not found in course #' . $meeting->course . '.');
-                        continue;
-                    }
-                }
-            }
-
-            // Teams.
-            if ($help->config->platform == $help::PLATFORM_TEAMS) {
-
-                // Define a regular expression pattern to match the ID.
-                $pattern = '/^.*:meeting_([A-Za-z0-9]+)@thread\.v2$/';
-                // Use preg_match to find matches.
-                if (preg_match($pattern, $meeting->recordingid, $matches)) {
-                    // Will contain the first set of parentheses, which is the ID.
-                    $tmpmeetingid = $matches[1];
-                    mtrace('checking meeting: ' . $meeting->recordingid);
-                    $likesql = $DB->sql_like('externalurl', ':externalurl');
-                    $platform = $DB->get_record_sql(
-                            "SELECT id, course FROM {msteams} WHERE {$likesql}",
-                            [
-                                    'externalurl' => '%' . $tmpmeetingid . '%',
-                            ]
-                    );
-                }
-
-                $details = $help->teams_course_data($meeting->topic);
-                if ($details['courseid'] > 0) {
-                    $platform = new \stdClass();
-                    $platform->course = $details['courseid'];
-                }
-
-            }
-
-            if (!$platform) {
-                if ($meeting->course) {
-                    if ($page = $help->add_module($meeting)) {
-                        $source = $DB->get_record('course_modules', [
-                                'course' => $meeting->course,
-                                'module' => $streammodule->id,
-                                'instance' => $page->id,
-                        ]);
-                        if ($source) {
-                            $meeting->moduleid = $page->id;
-                            $meeting->embedded = 1;
-                            if ($help->config->platform == $help::PLATFORM_ZOOM) {
-                                $meeting->embedded_at = time();
-                            }
-                            mtrace('NO-PLATFORM: The video with ID #' . $meeting->id . ' was embedded in course #' . $meeting->course .
-                                    '.');
-                        } else {
-                            $meeting->embedded = 2;
-                            mtrace('NO-PLATFORM: stream course module not found for video #' . $meeting->id . '.');
-                        }
-                    } else {
-                        $meeting->embedded = 2;
-                        mtrace('NO-PLATFORM: failed to create stream activity for video #' . $meeting->id . '.');
-                    }
-                } else {
-                    $meeting->embedded = 2;
-                    mtrace('meeting not found.');
-                }
-            } else {
-                $meeting->course = $platform->course;
-                if (!$course = $DB->get_record('course', ['id' => $meeting->course])) {
-
-                    $meeting->embedded = 2;
-                    $DB->update_record('local_stream_rec', $meeting);
-
-                    mtrace('The video with ID #' . $meeting->id . ' not found in course #' . $meeting->course . '.');
-                    continue;
-                }
-
-                if ($page = $help->add_module($meeting)) {
-                    $source = $DB->get_record('course_modules',
-                            ['course' => $platform->course, 'module' => $streammodule->id, 'instance' => $page->id]);
-                    $destination = $DB->get_record('course_modules',
-                            ['course' => $platform->course, 'module' => $module->id, 'instance' => $platform->id]);
-
-                    // Only resolve section and move modules when destination exists and section is valid.
-                    $section = null;
-                    if ($destination) {
-                        $section = $DB->get_record('course_sections',
-                                ['course' => $platform->course, 'id' => $destination->section]);
-                    }
-
-                    // Check if the 'sectionname' from the Moodle course matches the meeting name from Microsoft Teams.
-                    // If it does, retrieve the corresponding course section record from the database using the course ID
-                    // and section name. If the section is found, move the specified module to that section.
-                    if (isset($details['sectionname']) && $details['sectionname']) {
-                        $section = $DB->get_record('course_sections',
-                                ['course' => $platform->course, 'name' => $details['sectionname']]);
-
-                        if ($section && $source) {
-                            moveto_module($source, $section);
-                        }
-                    } else if ($section && $source) {
-
-                        if ($destination) {
-                            moveto_module($source, $section, $destination);
-                        }
-
-                        // Move page under Zoom meeting.
-                        if ($help->config->embedorder == '1' && $destination) {
-                            moveto_module($destination, $section, $source);
-                        }
-                    }
-
-                    if ($source) {
-                        $meeting->embedded = 1;
-                        $meeting->course = $platform->course;
-                        $meeting->moduleid = $page->id;
-                        if ($help->config->platform == $help::PLATFORM_ZOOM) {
-                            $meeting->embedded_at = time();
-                        }
-                        mtrace('The video with ID #' . $meeting->id . ' was embedded in course #' . $platform->course . '.');
-                    } else {
-                        $meeting->embedded = 2;
-                        mtrace('stream course module not found for video #' . $meeting->id . ' in course #' . $platform->course . '.');
-                    }
-                } else {
-                    $meeting->embedded = 2;
-                    mtrace('failed to create stream activity for video #' . $meeting->id . ' in course #' . $platform->course . '.');
-                }
-            }
-
-            $DB->update_record('local_stream_rec', $meeting);
-
-            if ($task && $meeting->course && $meeting->visible) {
-
-                $coursecontext = \context_course::instance($meeting->course);
-                $users = get_enrolled_users($coursecontext);
-                foreach ($users as $user) {
-                    $task->set_custom_data([
-                            'userid' => $user->id,
-                            'courseid' => $meeting->course,
-                            'meetingid' => $meeting->id,
-                            'date' => userdate(strtotime($meeting->starttime), '%d/%m/%Y'),
-                            'time' => userdate(strtotime($meeting->starttime), '%H:%M'),
-                            'topic' => $meeting->topic]);
-                    \core\task\manager::queue_adhoc_task($task);
-                }
-            }
+            \local_stream\embed_recording_helper::process_single(
+                    $help,
+                    $meeting,
+                    $streammodule,
+                    $module,
+                    false,
+                    true,
+                    null
+            );
         }
 
         return true;
