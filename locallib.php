@@ -1758,6 +1758,7 @@ class local_stream_help {
      * @return void
      */
     public function hooks($baseurl) {
+        global $DB;
 
         $id = optional_param('id', 0, PARAM_INT);
         $visible = optional_param('visible', 0, PARAM_INT);
@@ -1777,6 +1778,10 @@ class local_stream_help {
                 redirect($baseurl, get_string('error', 'local_stream'));
             }
         } else if ($action == 'download' && $id) {
+            $meeting = $DB->get_record('local_stream_rec', ['id' => $id], 'id,streamid');
+            if (!empty($meeting->streamid)) {
+                $this->stream_login('videos/edit/' . $meeting->streamid);
+            }
             if (!$this->download_recording($id)) {
                 redirect($baseurl, get_string('errordownload', 'local_stream', $id));
             }
