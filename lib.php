@@ -291,3 +291,45 @@ function local_stream_extend_navigation_course($navigation, $course, $context) {
 
     $navigation->add($label, $url, navigation_node::TYPE_SETTING, null, 'local_stream', $icon);
 }
+
+/**
+ * Adds a link under the quiz activity settings (gear) to the “questions from recordings” page.
+ *
+ * @param settings_navigation $navigation
+ * @param context $context
+ */
+function local_stream_extend_settings_navigation(settings_navigation $navigation, context $context): void {
+    global $PAGE;
+
+    if ($PAGE->activityname !== 'quiz' || !$PAGE->cm) {
+        return;
+    }
+
+    $coursecontext = context_course::instance($PAGE->course->id);
+    if (!has_capability('moodle/question:add', $coursecontext)) {
+        return;
+    }
+
+    $node = $navigation->find('modulesettings', navigation_node::TYPE_SETTING);
+    if (!$node) {
+        return;
+    }
+
+    $params = [
+            'course' => (int) $PAGE->course->id,
+            'cmid' => (int) $PAGE->cm->id,
+    ];
+    if ((string) $PAGE->url->out_as_local_url(false) !== '') {
+        $params['returnurl'] = $PAGE->url->out_as_local_url(false);
+    }
+    $url = new moodle_url('/local/stream/question_from_video.php', $params);
+
+    $node->add(
+            get_string('aicreatequestionsmenu', 'local_stream'),
+            $url,
+            navigation_node::TYPE_SETTING,
+            null,
+            'local_stream_ai_questions',
+            new pix_icon('icon', get_string('aicreatequestionsmenu', 'local_stream'), 'local_stream')
+    );
+}

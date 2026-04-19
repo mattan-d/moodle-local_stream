@@ -1,0 +1,78 @@
+/* local_stream: question from video – subtitled video picker */
+
+.local-stream-qfv-wrap {
+    max-width: 100%;
+}
+
+.local-stream-qfv-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.local-stream-qfv-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    text-align: start;
+    padding: 0.5rem;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.5rem;
+    background: var(--bs-body-bg, #fff);
+    cursor: pointer;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.local-stream-qfv-card:hover {
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.08);
+}
+
+.local-stream-qfv-card.selected {
+    border-color: var(--bs-primary, #0f6cbf);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.local-stream-qfv-card img {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 0.35rem;
+    background: var(--bs-secondary-bg, #e9ecef);
+}
+
+.local-stream-qfv-card-title {
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.local-stream-qfv-card-meta {
+    margin-top: 0.25rem;
+}
+
+.local-stream-qfv-picker-help {
+    margin-bottom: 0.75rem;
+}
+
+.local-stream-qfv-search {
+    flex-wrap: wrap;
+    max-width: min(560px, 100%);
+}
+
+.local-stream-qfv-search .btn-link {
+    white-space: nowrap;
+}
+
+.local-stream-qfv-genform {
+    max-width: min(520px, 100%);
+}
+
+.local-stream-qfv-results .local-stream-qfv-result-card .card-header {
+    font-size: 0.9rem;
+}
+
+.local-stream-qfv-results ol {
+    padding-inline-start: 1.25rem;
+}

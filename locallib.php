@@ -2160,4 +2160,155 @@ class local_stream_help {
 
         return $readablestring;
     }
+
+    /**
+     * Call Stream user-videos API (one batch).
+     *
+     * @param string $email User email on Stream (required by API).
+     * @param int $limit 1–100
+     * @param int $offset Pagination offset
+     * @return array{error:bool,message:string,videos:array,total?:int}
+     */
+    public function call_user_videos_api(string $email, int $limit = 50, int $offset = 0): array {
+        $streamurl = rtrim((string) ($this->config->streamurl ?? ''), '/');
+        $streamkey = (string) ($this->config->streamkey ?? '');
+        if ($streamurl === '' || $streamkey === '') {
+            return ['error' => true, 'message' => 'missingconfig', 'videos' => [], 'total' => 0];
+        }
+        if (trim($email) === '') {
+            return ['error' => true, 'message' => 'noemail', 'videos' => [], 'total' => 0];
+        }
+
+        $limit = min(100, max(1, $limit));
+        $offset = max(0, $offset);
+        $endpoint = $streamurl . '/webservice/api/user-videos';
+
+        $headers = [
+                'Authorization: Bearer ' . $streamkey,
+                'Accept: application/json',
+        ];
+        $options = [
+                'CURLOPT_POST' => true,
+                'CURLOPT_RETURNTRANSFER' => true,
+                'CURLOPT_HTTPHEADER' => $headers,
+        ];
+
+        $curl = new \curl();
+        $raw = $curl->post($endpoint, [
+                'email' => $email,
+                'limit' => $limit,
+                'offset' => $offset,
+        ], $options);
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return ['error' => true, 'message' => 'invalidjson', 'videos' => [], 'total' => 0];
+        }
+        if (!empty($decoded['error'])) {
+            $msg = trim((string) ($decoded['message'] ?? ''));
+            return ['error' => true, 'message' => $msg !== '' ? $msg : 'apierror', 'videos' => [], 'total' => 0];
+        }
+
+        $videos = $decoded['videos'] ?? [];
+        if (!is_array($videos)) {
+            $videos = [];
+        }
+        $total = isset($decoded['total']) ? (int) $decoded['total'] : count($videos);
+
+        return [
+                'error' => false,
+                'message' => (string) ($decoded['message'] ?? ''),
+                'videos' => $videos,
+                'total' => $total,
+        ];
+    }
+
+    /**
+     * Fetch all batches from user-videos and keep only entries with subtitles (has_subtitles).
+     *
+     * @param string $email Moodle user email sent to Stream
+     * @return array{error:bool,message:string,videos:array<int,array>}
+     */
+    public function collect_user_subtitled_videos(string $email): array {
+        $subtitled = [];
+        $offset = 0;
+        $batch = 100;
+        $maxiterations = 100;
+
+        for ($i = 0; $i < $maxiterations; $i++) {
+            $resp = $this->call_user_videos_api($email, $batch, $offset);
+            if ($resp['error']) {
+                return ['error' => true, 'message' => $resp['message'], 'videos' => []];
+            }
+            foreach ($resp['videos'] as $v) {
+                if (is_array($v) && !empty($v['has_subtitles'])) {
+                    $subtitled[] = $v;
+                }
+            }
+            if (count($resp['videos']) < $batch) {
+                break;
+            }
+            $offset += $batch;
+        }
+
+        return ['error' => false, 'message' => '', 'videos' => $subtitled];
+    }
+
+    /**
+     * Generate study questions from video subtitles via Stream API.
+     *
+     * @param int $videoid Stream video id
+     * @param int $count Number of questions (1–20)
+     * @param string $qtypekey moodle-like key: multichoice | shortanswer | truefalse
+     * @return array{error:bool,message?:string,payload?:array}
+     */
+    public function call_video_subtitle_questions_api(int $videoid, int $count, string $qtypekey): array {
+        $streamurl = rtrim((string) ($this->config->streamurl ?? ''), '/');
+        $streamkey = (string) ($this->config->streamkey ?? '');
+        if ($streamurl === '' || $streamkey === '') {
+            return ['error' => true, 'message' => 'missingconfig'];
+        }
+        if ($videoid < 1) {
+            return ['error' => true, 'message' => 'invalidvideoid'];
+        }
+
+        $count = min(20, max(1, $count));
+
+        $map = [
+                'multichoice' => 'multichoice',
+                'shortanswer' => 'short_answer',
+                'truefalse' => 'true_false',
+        ];
+        $questiontype = $map[$qtypekey] ?? 'multichoice';
+
+        $endpoint = $streamurl . '/webservice/api/video-subtitle-questions';
+
+        $headers = [
+                'Authorization: Bearer ' . $streamkey,
+                'Accept: application/json',
+        ];
+        $options = [
+                'CURLOPT_POST' => true,
+                'CURLOPT_RETURNTRANSFER' => true,
+                'CURLOPT_HTTPHEADER' => $headers,
+        ];
+
+        $curl = new \curl();
+        $raw = $curl->post($endpoint, [
+                'videoid' => $videoid,
+                'count' => $count,
+                'question_type' => $questiontype,
+        ], $options);
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return ['error' => true, 'message' => 'invalidjson'];
+        }
+        if (!empty($decoded['error'])) {
+            $msg = trim((string) ($decoded['message'] ?? ''));
+            return ['error' => true, 'message' => $msg !== '' ? $msg : 'apierror'];
+        }
+
+        return ['error' => false, 'payload' => $decoded];
+    }
 }
