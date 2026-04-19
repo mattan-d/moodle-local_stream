@@ -56,13 +56,94 @@
     margin-bottom: 0.75rem;
 }
 
-.local-stream-qfv-search {
-    flex-wrap: wrap;
-    max-width: min(560px, 100%);
+/* Search panel */
+.local-stream-qfv-search-panel {
+    background: var(--bs-body-bg, #fff);
 }
 
-.local-stream-qfv-search .btn-link {
+.local-stream-qfv-search-panel .card-body {
+    background: linear-gradient(
+        180deg,
+        var(--bs-light, #f8f9fa) 0%,
+        var(--bs-body-bg, #fff) 100%
+    );
+    border-radius: inherit;
+}
+
+.local-stream-qfv-search-heading {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--bs-emphasis-color, inherit);
+}
+
+.local-stream-qfv-search-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+@media (min-width: 576px) {
+    .local-stream-qfv-search-controls {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: stretch;
+    }
+}
+
+.local-stream-qfv-search-field {
+    flex: 1 1 12rem;
+    min-width: 0;
+}
+
+.local-stream-qfv-search-panel .local-stream-qfv-search-prefix {
+    border-inline-end: 0;
+}
+
+.local-stream-qfv-search-panel .local-stream-qfv-search-prefix .icon {
+    margin: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    opacity: 0.85;
+}
+
+.local-stream-qfv-search-panel .form-control:focus {
+    box-shadow: none;
+    border-color: var(--bs-primary, #0f6cbf);
+}
+
+.local-stream-qfv-search-panel .input-group:focus-within {
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb, 13, 110, 253), 0.25);
+    border-radius: var(--bs-border-radius-lg, 0.5rem);
+}
+
+.local-stream-qfv-search-panel .input-group .form-control {
+    border-inline-start: 0;
+}
+
+.local-stream-qfv-search-panel .input-group .form-control:focus {
+    border-color: var(--bs-border-color, #ced4da);
+}
+
+.local-stream-qfv-search-clear {
+    flex: 0 0 auto;
+    align-self: center;
     white-space: nowrap;
+}
+
+@media (max-width: 575.98px) {
+    .local-stream-qfv-search-clear {
+        align-self: stretch;
+        width: 100%;
+    }
+}
+
+.local-stream-qfv-search-active {
+    padding: 0.35rem 0.65rem;
+    border-radius: var(--bs-border-radius, 0.375rem);
+    background: var(--bs-tertiary-bg, rgba(0, 0, 0, 0.04));
+    border: 1px solid var(--bs-border-color-translucent, rgba(0, 0, 0, 0.08));
+    word-break: break-word;
 }
 
 .local-stream-qfv-genform {
