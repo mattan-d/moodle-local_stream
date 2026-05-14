@@ -112,6 +112,16 @@ $string['streamurl'] = 'כתובת URL מערכת Stream';
 $string['syncmteams'] = 'Sync MS Teams';
 $string['teams'] = 'מיקרוסופט טימס';
 $string['teamsusersfilter'] = 'סינון שמות משתמשים';
+$string['teamssharepointsite'] = 'אתר SharePoint (ספריית הקלטות טימס)';
+$string['teamssharepointsite_desc'] =
+        'חובה לאינדוקס טימס (אלא אם מסומן "Legacy" למטה). מזהה אתר ב-Microsoft Graph לאתר SharePoint שבו נשמרות הקלטות — לדוגמה contoso.sharepoint.com:/sites/RecordingsSite:. ' .
+        'כשהשדה מלא נסרקים כל הכוננים באתר וכל התיקיות לקובצי וידאו. נדרשות הרשאות אפליקציה כגון Sites.Read.All ו-Files.Read.All.';
+$string['teamslegacyonedrive'] = 'אינדוקס ישן (קבוצות + OneDrive)';
+$string['teamslegacyonedrive_desc'] =
+        'רק אם לא משתמשים בשדה אתר SharePoint למעלה: מסלול איטי שמביא קבוצות מ-Entra, משאיר רק קבוצות שבעלים בהן עם "moodle@" בדוא״ל, ואז סורק OneDrive שלהם. השאירו לא מסומן כשמשתמשים באתר SharePoint למעלה.';
+$string['teamsfallbackemail'] = 'דוא״ל fallback להעלאה ל-Stream';
+$string['teamsfallbackemail_desc'] =
+        'אופציונלי. כש-Graph לא מחזיר דוא״ל יוצר לקובץ ב-SharePoint, משתמשים בכתובת זו כבעלים ב-Stream. אם ריק — יילקח דוא״ל מנהל האתר.';
 $string['tenantid'] = 'Tenant ID';
 $string['topic'] = 'נושא';
 $string['unicko'] = 'יוניקו';

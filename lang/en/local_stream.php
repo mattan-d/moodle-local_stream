@@ -112,6 +112,16 @@ $string['streamurl'] = 'Stream URL';
 $string['syncmteams'] = 'Sync MS Teams';
 $string['teams'] = 'Microsoft Teams';
 $string['teamsusersfilter'] = 'Filter users list';
+$string['teamssharepointsite'] = 'SharePoint site (Teams recordings library)';
+$string['teamssharepointsite_desc'] =
+        'Required for Teams indexing (unless you enable Legacy below). Microsoft Graph site identifier for the SharePoint site where recordings are stored — for example contoso.sharepoint.com:/sites/RecordingsSite:. ' .
+        'When this field is set, all drives on the site and all folders are scanned for video files. Requires app permissions such as Sites.Read.All and Files.Read.All.';
+$string['teamslegacyonedrive'] = 'Legacy OneDrive / groups index';
+$string['teamslegacyonedrive_desc'] =
+        'Only if you are not using the SharePoint site field above: slow path that lists Entra groups, keeps only groups whose owners include "moodle@" in the email, then scans those owners\' OneDrives. Leave unchecked when using SharePoint site indexing above.';
+$string['teamsfallbackemail'] = 'Teams Stream owner email (fallback)';
+$string['teamsfallbackemail_desc'] =
+        'Optional. When Graph does not return a creator email for a SharePoint file, this address is used as the Stream uploader. If empty, the primary site admin email is used.';
 $string['tenantid'] = 'Tenant ID';
 $string['topic'] = 'Topic';
 $string['unicko'] = 'Unicko';

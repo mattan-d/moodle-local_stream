@@ -49,6 +49,13 @@ class local_stream_help {
     public $cache;
 
     /**
+     * SharePoint listing: try OData $filter=createdDateTime ge … on children; auto-disabled if Graph returns an error.
+     *
+     * @var bool
+     */
+    private $teamsgraphuseserversidefilter = true;
+
+    /**
      * Constant representing the Zoom platform.
      */
     public const PLATFORM_ZOOM = 0;
@@ -1797,56 +1804,405 @@ class local_stream_help {
     /**
      * Retrieves an OAuth token for Microsoft Teams API requests.
      *
-     * @return string The access token.
+     * @return string|false The access token, or false on failure.
      */
     private function teams_get_token() {
 
-        static $response;
-        if (!isset($response)) {
-            $url = 'https://login.microsoftonline.com/' . $this->config->teamstenantid . '/oauth2/v2.0/token';
-            $data = [
-                    'grant_type' => 'client_credentials',
-                    'client_id' => $this->config->teamsclientid,
-                    'client_secret' => $this->config->teamsclientsecret,
-                    'scope' => 'https://graph.microsoft.com/.default',
-            ];
-
-            $options = [
-                    'CURLOPT_POST' => true,
-                    'CURLOPT_RETURNTRANSFER' => true,
-            ];
-
-            $curl = new \curl();
-            $jsonresult = $curl->post($url, $data, $options);
-            $response = json_decode($jsonresult);
+        static $token;
+        static $failed;
+        if ($failed) {
+            return false;
+        }
+        if ($token !== null) {
+            return $token;
         }
 
-        return $response->access_token;
+        $url = 'https://login.microsoftonline.com/' . $this->config->teamstenantid . '/oauth2/v2.0/token';
+        $data = [
+                'grant_type' => 'client_credentials',
+                'client_id' => $this->config->teamsclientid,
+                'client_secret' => $this->config->teamsclientsecret,
+                'scope' => 'https://graph.microsoft.com/.default',
+        ];
+
+        $options = [
+                'CURLOPT_POST' => true,
+                'CURLOPT_RETURNTRANSFER' => true,
+        ];
+
+        $curl = new \curl();
+        $jsonresult = $curl->post($url, $data, $options);
+        $response = json_decode($jsonresult);
+        if (!$response || empty($response->access_token)) {
+            mtrace('Teams: OAuth token request failed.');
+            $failed = true;
+            return false;
+        }
+
+        $token = (string) $response->access_token;
+        return $token;
     }
 
     /**
-     * Makes a request to the Microsoft Teams API.
+     * GET Microsoft Graph (relative path beginning with /, or full https:// URL for @odata.nextLink).
      *
-     * @param string $path The API endpoint path.
-     * @return mixed The response from the API.
+     * @param string $urlpath
+     * @return array{0: string, 1: int} Response body and HTTP status code.
      */
-    private function teams_make_request($path) {
-
+    private function teams_graph_request_get($urlpath) {
+        $tok = $this->teams_get_token();
+        if ($tok === false || $tok === '') {
+            return ['', 401];
+        }
+        $url = (strpos($urlpath, 'http') === 0) ? $urlpath : ('https://graph.microsoft.com/v1.0' . $urlpath);
         $headers = [
-                'Authorization: Bearer ' . $this->teams_get_token(),
+                'Authorization: Bearer ' . $tok,
                 'Accept: application/json',
         ];
-
         $options = [
                 'CURLOPT_RETURNTRANSFER' => true,
                 'CURLOPT_HTTPHEADER' => $headers,
         ];
-
         $curl = new \curl();
-        $jsonresult = $curl->get('https://graph.microsoft.com/v1.0' . $path, null, $options);
-        $response = json_decode($jsonresult);
+        $body = $curl->get($url, null, $options);
+        $info = $curl->get_info();
+        $code = isset($info['http_code']) ? (int) $info['http_code'] : 0;
+        return [(string) $body, $code];
+    }
 
-        return $response;
+    /**
+     * Makes a request to the Microsoft Teams API (JSON response).
+     *
+     * @param string $path The API endpoint path (or full Graph URL).
+     * @return mixed Decoded object, or null on failure.
+     */
+    private function teams_make_request($path) {
+
+        list($jsonresult, $code) = $this->teams_graph_request_get($path);
+        if ($code >= 400) {
+            mtrace('Teams Graph error HTTP ' . $code . ' for ' . substr($path, 0, 160));
+            return null;
+        }
+        return json_decode($jsonresult);
+    }
+
+    /**
+     * Oldest createdDateTime (Unix ts) for items to include in listing, from admin "Days to listing".
+     *
+     * @return int
+     */
+    private function teams_listing_cutoff_timestamp() {
+        $days = (int) $this->config->daystolisting;
+        if ($days <= 0) {
+            $midnight = strtotime('today midnight');
+            return ($midnight !== false) ? $midnight : (time() - 86400);
+        }
+        return time() - ($days * 86400);
+    }
+
+    /**
+     * Whether a drive item is new enough for the current listing window.
+     *
+     * @param stdClass $item Graph driveItem.
+     * @param int $cutoff Unix timestamp.
+     * @return bool
+     */
+    private function teams_item_created_not_before($item, $cutoff) {
+        if (empty($item->createdDateTime)) {
+            return false;
+        }
+        $ts = strtotime($item->createdDateTime);
+        return $ts !== false && $ts >= $cutoff;
+    }
+
+    /**
+     * Video file filter (mime video/* or .mp4), aligned with standalone Graph listing example.
+     *
+     * @param stdClass $item
+     * @return bool
+     */
+    private function teams_sp_item_is_video_recording($item) {
+        $mime = '';
+        if (isset($item->file->mimeType)) {
+            $mime = strtolower((string) $item->file->mimeType);
+        }
+        $name = strtolower((string) ($item->name ?? ''));
+        if ($mime !== '' && strpos($mime, 'video/') === 0) {
+            return true;
+        }
+        $len = strlen($name);
+        if ($len >= 4 && substr($name, -4) === '.mp4') {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * OData children URL for a folder; optional server-side createdDateTime filter.
+     *
+     * @param string $driveid
+     * @param string $folderid Use "root" for drive root.
+     * @param int $cutoff
+     * @param bool $allowfilter
+     * @return string Relative Graph path.
+     */
+    private function teams_sp_children_list_url($driveid, $folderid, $cutoff, $allowfilter) {
+        $base = '/drives/' . rawurlencode($driveid) . '/items/' . rawurlencode($folderid) . '/children';
+        if (!$allowfilter || !$this->teamsgraphuseserversidefilter) {
+            return $base;
+        }
+        $cutoffiso = gmdate('Y-m-d\TH:i:s', $cutoff) . '.000Z';
+        return $base . '?$filter=' . rawurlencode('createdDateTime ge ' . $cutoffiso);
+    }
+
+    /**
+     * Walk one drive recursively and queue new video files (SharePoint / Teams recordings library pattern).
+     *
+     * @param string $driveid
+     * @param string $folderid
+     * @param string $logicalpath
+     * @param string $drivename
+     * @param int $cutoff
+     * @return void
+     */
+    private function teams_sp_walk_drive($driveid, $folderid, $logicalpath, $drivename, $cutoff) {
+        $next = $this->teams_sp_children_list_url($driveid, $folderid, $cutoff, true);
+        while ($next !== '' && $next !== null) {
+            list($raw, $code) = $this->teams_graph_request_get($next);
+            if ($code >= 400 && $this->teamsgraphuseserversidefilter && strpos($next, '$filter=') !== false) {
+                mtrace('Teams SharePoint: server-side $filter not supported; falling back to client-side date filter.');
+                $this->teamsgraphuseserversidefilter = false;
+                $next = $this->teams_sp_children_list_url($driveid, $folderid, $cutoff, false);
+                continue;
+            }
+            if ($code >= 400) {
+                mtrace('Teams SharePoint: list children HTTP ' . $code);
+                break;
+            }
+            $decoded = json_decode($raw);
+            if (!$decoded || empty($decoded->value)) {
+                break;
+            }
+            foreach ($decoded->value as $item) {
+                if (isset($item->folder)) {
+                    $childid = isset($item->id) ? (string) $item->id : '';
+                    if ($childid !== '') {
+                        $subname = isset($item->name) ? (string) $item->name : '';
+                        $subpath = $logicalpath === '' ? $subname : $logicalpath . '/' . $subname;
+                        $this->teams_sp_walk_drive($driveid, $childid, $subpath, $drivename, $cutoff);
+                    }
+                    continue;
+                }
+                if (!$this->teams_item_created_not_before($item, $cutoff)) {
+                    continue;
+                }
+                if (!$this->teams_sp_item_is_video_recording($item)) {
+                    continue;
+                }
+                $this->teams_add_meeting($item, $driveid);
+            }
+            if (!empty($decoded->{'@odata.nextLink'})) {
+                $next = $decoded->{'@odata.nextLink'};
+            } else {
+                $next = '';
+            }
+        }
+    }
+
+    /**
+     * List recordings from a SharePoint site document libraries via Graph (same idea as teams_list_recordings example).
+     *
+     * @param string $sitesegment e.g. contoso.sharepoint.com:/sites/Recordings:
+     * @return void
+     */
+    private function listing_teams_sharepoint_site($sitesegment) {
+        $sitesegment = trim($sitesegment);
+        if ($sitesegment === '') {
+            return;
+        }
+        $this->teamsgraphuseserversidefilter = true;
+        $cutoff = $this->teams_listing_cutoff_timestamp();
+        $drivesresponse = $this->teams_make_request('/sites/' . $sitesegment . '/drives');
+        if (!$drivesresponse || empty($drivesresponse->value)) {
+            mtrace('Teams SharePoint: no drives returned (check teamssharepointsite value and Sites.Read.All / Files.Read.All).');
+            return;
+        }
+        foreach ($drivesresponse->value as $drive) {
+            $driveid = isset($drive->id) ? (string) $drive->id : '';
+            $drivename = isset($drive->name) ? (string) $drive->name : '';
+            if ($driveid === '') {
+                continue;
+            }
+            mtrace('Teams SharePoint: scanning drive "' . $drivename . '" (' . $driveid . ')');
+            $this->teams_sp_walk_drive($driveid, 'root', '', $drivename, $cutoff);
+        }
+    }
+
+    /**
+     * Fetch driveItem metadata including @microsoft.graph.downloadUrl when present.
+     *
+     * @param string|null $driveid When null, uses the user's default drive via /users/{email}/drive/items/...
+     * @param string $owneremail
+     * @param string $itemid
+     * @return stdClass|null
+     */
+    private function teams_graph_drive_item_metadata($driveid, $owneremail, $itemid) {
+        $select = 'id,name,size,createdDateTime,webUrl,file,@microsoft.graph.downloadUrl';
+        $query = '$select=' . rawurlencode($select);
+        if ($driveid !== null && $driveid !== '') {
+            $path = '/drives/' . rawurlencode($driveid) . '/items/' . rawurlencode($itemid) . '?' . $query;
+        } else {
+            $path = '/users/' . rawurlencode($owneremail) . '/drive/items/' . rawurlencode($itemid) . '?' . $query;
+        }
+        $obj = $this->teams_make_request($path);
+        if (!$obj || (!is_object($obj) && !is_array($obj))) {
+            return null;
+        }
+        return is_object($obj) ? $obj : (object) $obj;
+    }
+
+    /**
+     * Scan decoded JSON for any download URL string (Graph sometimes nests or renames the property).
+     *
+     * @param mixed $data
+     * @return string
+     */
+    private function teams_graph_find_download_url($data) {
+        $arr = json_decode(json_encode($data), true);
+        if (!is_array($arr)) {
+            return '';
+        }
+        $stack = [$arr];
+        while ($stack !== []) {
+            $cur = array_pop($stack);
+            foreach ($cur as $k => $v) {
+                if (is_string($k) && is_string($v) && strpos($v, 'http') === 0) {
+                    $kl = strtolower($k);
+                    if ($kl === '@microsoft.graph.downloadurl' || strpos($kl, 'downloadurl') !== false) {
+                        return $v;
+                    }
+                }
+                if (is_array($v)) {
+                    $stack[] = $v;
+                }
+            }
+        }
+        return '';
+    }
+
+    /**
+     * Follow .../items/{id}/content redirect to obtain a time-limited file URL.
+     *
+     * @param string|null $driveid
+     * @param string $owneremail
+     * @param string $itemid
+     * @return string
+     */
+    private function teams_fetch_content_redirect_download_url($driveid, $owneremail, $itemid) {
+        $tok = $this->teams_get_token();
+        if ($tok === false || $tok === '') {
+            return '';
+        }
+        if ($driveid !== null && $driveid !== '') {
+            $url = 'https://graph.microsoft.com/v1.0/drives/' . rawurlencode($driveid) . '/items/' .
+                    rawurlencode($itemid) . '/content';
+        } else {
+            $url = 'https://graph.microsoft.com/v1.0/users/' . rawurlencode($owneremail) . '/drive/items/' .
+                    rawurlencode($itemid) . '/content';
+        }
+        if (!function_exists('curl_init')) {
+            return '';
+        }
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_HEADER => true,
+                CURLOPT_NOBODY => true,
+                CURLOPT_HTTPHEADER => [
+                        'Authorization: Bearer ' . $tok,
+                        'Accept: */*',
+                ],
+                CURLOPT_CONNECTTIMEOUT => 25,
+                CURLOPT_TIMEOUT => 120,
+        ]);
+        $response = curl_exec($ch);
+        if ($response === false) {
+            curl_close($ch);
+            return '';
+        }
+        $headerblock = '';
+        $headersize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        if ($headersize > 0) {
+            $headerblock = substr((string) $response, 0, $headersize);
+        }
+        $redirect = '';
+        if (defined('CURLINFO_REDIRECT_URL')) {
+            $tmp = curl_getinfo($ch, CURLINFO_REDIRECT_URL);
+            if (is_string($tmp) && strpos($tmp, 'http') === 0) {
+                $redirect = $tmp;
+            }
+        }
+        curl_close($ch);
+        if ($redirect !== '') {
+            return $redirect;
+        }
+        if (preg_match('/^Location:\s*(.+)$/mi', $headerblock, $m)) {
+            return trim($m[1], " \t\r\n\"'");
+        }
+        return '';
+    }
+
+    /**
+     * Resolve a usable download URL for a drive item (pre-auth URL or /content redirect).
+     *
+     * @param string|null $driveid
+     * @param string $owneremail
+     * @param string $itemid
+     * @param stdClass|null $detail Metadata from teams_graph_drive_item_metadata (optional).
+     * @return string
+     */
+    private function teams_resolve_drive_item_download_url($driveid, $owneremail, $itemid, $detail) {
+        $fromdetail = '';
+        if ($detail) {
+            $fromdetail = $this->teams_graph_find_download_url($detail);
+        }
+        if ($fromdetail !== '') {
+            return $fromdetail;
+        }
+        return $this->teams_fetch_content_redirect_download_url($driveid, $owneremail, $itemid);
+    }
+
+    /**
+     * Refresh Graph pre-authenticated download URL before Stream ingest (URLs expire).
+     *
+     * @param stdClass $meeting Row from local_stream_rec (updated in DB when a new URL is found).
+     * @return void
+     */
+    public function teams_refresh_recording_download_url($meeting) {
+        global $DB;
+        if (empty($meeting->recordingdata) || empty($meeting->email)) {
+            return;
+        }
+        $rd = json_decode($meeting->recordingdata);
+        if (!$rd || empty($rd->fileid)) {
+            return;
+        }
+        $fileid = (string) $rd->fileid;
+        $driveid = isset($rd->driveid) ? (string) $rd->driveid : '';
+        $drivearg = ($driveid !== '') ? $driveid : null;
+        $detail = $this->teams_graph_drive_item_metadata($drivearg, (string) $meeting->email, $fileid);
+        $download = $this->teams_resolve_drive_item_download_url($drivearg, (string) $meeting->email, $fileid, $detail);
+        if ($download === '') {
+            mtrace('Teams: could not refresh download URL for recording #' . $meeting->id);
+            return;
+        }
+        $rd->download_url = $download;
+        if ($detail && !empty($detail->webUrl)) {
+            $rd->play_url = $detail->webUrl;
+        }
+        $meeting->recordingdata = json_encode($rd);
+        $DB->update_record('local_stream_rec', $meeting);
     }
 
     /**
@@ -1856,6 +2212,10 @@ class local_stream_help {
      */
     private function teams_groups_owners() {
         $groups = $this->teams_make_request('/groups');
+        if (!$groups || empty($groups->value)) {
+            mtrace('Teams: could not list groups (missing token or Group.Read.All / etc.).');
+            return [];
+        }
 
         $tmpgroups = [];
         $tmpowners = [];
@@ -1863,8 +2223,11 @@ class local_stream_help {
 
         foreach ($groups->value as $group) {
             $tmpowners[$group->id] = $this->teams_make_request('/groups/' . $group->id . '/owners');
+            if (empty($tmpowners[$group->id]->value)) {
+                continue;
+            }
             foreach ($tmpowners[$group->id]->value as $owner) {
-                if (strpos($owner->mail, 'moodle@') === false) {
+                if (empty($owner->mail) || strpos($owner->mail, 'moodle@') === false) {
                     mtrace('Skipping Group ID: ' . $group->id);
                     continue;
                 }
@@ -1872,21 +2235,28 @@ class local_stream_help {
             }
         }
 
-        $userlistfiler = explode("\n", trim($this->config->teamsusersfilter));
+        $userlistfiler = explode("\n", trim($this->config->teamsusersfilter ?? ''));
 
         foreach ($tmpgroups as $tmpgroup) {
+            if (empty($tmpowners[$tmpgroup]->value)) {
+                continue;
+            }
             foreach ($tmpowners[$tmpgroup]->value as $owner) {
+                if (empty($owner->mail)) {
+                    continue;
+                }
 
                 $allow = false;
                 foreach ($userlistfiler as $username) {
-                    if (strpos($owner->mail, $username) !== false) {
+                    $username = trim($username);
+                    if ($username !== '' && strpos($owner->mail, $username) !== false) {
                         $allow = true;
                         break;
                     }
                 }
 
                 if (!in_array($owner->mail, $tmp) && $allow) {
-                    mtrace('Group ID: ' . $group->id . ' Owner: ' . $owner->mail);
+                    mtrace('Group ID: ' . $tmpgroup . ' Owner: ' . $owner->mail);
                     $tmp[] = $owner->mail;
                 }
             }
@@ -1904,13 +2274,12 @@ class local_stream_help {
      */
     private function teams_get_files_recursive($owneremail, $id) {
         $allfiles = [];
-        $nextlink = '/users/' . $owneremail . '/drive/items/' . $id . '/children';
+        $nextlink = '/users/' . rawurlencode($owneremail) . '/drive/items/' . rawurlencode($id) . '/children';
 
         // Iterate through subfolders and make recursive calls.
         while ($nextlink) {
             $response = $this->teams_make_request($nextlink);
-
-            if (!isset($response->value)) {
+            if (!$response || !isset($response->value)) {
                 break;
             }
 
@@ -1942,18 +2311,18 @@ class local_stream_help {
      */
     private function teams_get_owner_files($owneremail) {
 
-        $root = $this->teams_make_request('/users/' . $owneremail . '/drive/root/children');
+        $root = $this->teams_make_request('/users/' . rawurlencode($owneremail) . '/drive/root/children');
+        if (!$root || empty($root->value)) {
+            return;
+        }
+        $cutoff = $this->teams_listing_cutoff_timestamp();
         foreach ($root->value as $dir) {
             mtrace('Checking folder: ' . $dir->name);
             $files = $this->teams_get_files_recursive($owneremail, $dir->id);
             foreach ($files as $file) {
-                $giventimestamp = strtotime($file->createdDateTime);
-                $currenttimestamp = time();
-                $onedayinseconds = ($this->config->daystolisting * 24 * 60 * 60);
-
-                if (($currenttimestamp - $giventimestamp) <= $onedayinseconds) {
-                    mtrace('Meeting is within the last ' . $this->config->daystolisting . ' days.');
-                    $this->teams_add_meeting($file);
+                if ($this->teams_item_created_not_before($file, $cutoff)) {
+                    mtrace('Meeting is within listing window (days to listing / today).');
+                    $this->teams_add_meeting($file, null);
                 }
             }
         }
@@ -1983,43 +2352,102 @@ class local_stream_help {
     }
 
     /**
-     * Adds a meeting to the database.
+     * Adds a meeting to the database (Teams / Graph drive item).
      *
-     * @param object $data The meeting data.
+     * @param object $data Graph driveItem from listing.
+     * @param string|null $driveid When set (SharePoint site drives), stored for download URL refresh.
      * @return bool True if the meeting was added, false otherwise.
      */
-    public function teams_add_meeting($data) {
+    public function teams_add_meeting($data, $driveid = null) {
         global $DB;
 
-        if (!isset($data->source->threadId)) {
-            return;
+        if (empty($data->id)) {
+            return false;
         }
 
-        if ($DB->get_record('local_stream_rec', ['fileid' => $data->id])) {
-            mtrace('Skip Meeting: ' . $data->id);
-            return;
+        $drivearg = ($driveid !== null && $driveid !== '') ? $driveid : null;
+        $itemid = (string) $data->id;
+        $dedupekey = 't_' . substr(sha1(($drivearg ?? '') . '|' . $itemid), 0, 40);
+
+        if ($DB->get_record('local_stream_rec', ['recordingid' => $dedupekey])) {
+            mtrace('Skip Meeting: ' . $itemid);
+            return false;
         }
 
-        $start = new DateTime($data->media->recordingStartDateTime);
-        $start = $start->format("Y-m-d\TH:i:s\Z");
+        // fileid is XMLDB text — get_record() conditions are rejected when debugging is on; use sql_compare_text.
+        $filewhere = $DB->sql_compare_text('fileid', 4000) . ' = :teamsfileid';
+        if ($DB->record_exists_select('local_stream_rec', $filewhere, ['teamsfileid' => $itemid])) {
+            mtrace('Skip Meeting (fileid): ' . $itemid);
+            return false;
+        }
+
+        $email = '';
+        if (isset($data->createdBy->user->email)) {
+            $email = strtolower((string) $data->createdBy->user->email);
+        } else if (isset($data->createdBy->user->userPrincipalName)) {
+            $email = strtolower((string) $data->createdBy->user->userPrincipalName);
+        }
+        if ($email === '' || strpos($email, '@') === false) {
+            mtrace('Skip Meeting (no owner email): ' . $itemid);
+            return false;
+        }
+
+        $detail = $this->teams_graph_drive_item_metadata($drivearg, $email, $itemid);
+        $download = $this->teams_graph_find_download_url($data);
+        if ($download === '' && $detail) {
+            $download = $this->teams_graph_find_download_url($detail);
+        }
+        if ($download === '') {
+            $download = $this->teams_resolve_drive_item_download_url($drivearg, $email, $itemid, $detail);
+        }
+        if ($download === '') {
+            mtrace('Skip Meeting (no download URL): ' . $itemid);
+            return false;
+        }
+
+        // Rich Teams meeting object (OneDrive) vs plain SharePoint file.
+        if (isset($data->source->threadId, $data->media->recordingStartDateTime, $data->video->duration)) {
+            $start = new DateTime($data->media->recordingStartDateTime);
+            $start = $start->format("Y-m-d\TH:i:s\Z");
+            $duration = $this->seconds_to_hms($data->video->duration / 1000);
+            $meetingid = strtotime($data->createdDateTime);
+            $topic = $data->name;
+        } else {
+            $created = isset($data->createdDateTime) ? strtotime($data->createdDateTime) : false;
+            $start = ($created !== false) ? gmdate('Y-m-d\TH:i:s\Z', $created) : gmdate('Y-m-d\TH:i:s\Z');
+            $duration = '00:00:00';
+            if (isset($data->video->duration)) {
+                $duration = $this->seconds_to_hms(((int) $data->video->duration) / 1000);
+            }
+            $topic = isset($data->name) ? (string) $data->name : 'Recording';
+            $meetingid = ($created !== false) ? $created : time();
+        }
 
         $currdate = gmdate('Y-m-d\TH:i:s\Z');
         $newrecording = new stdClass();
-        $newrecording->topic = $data->name;
-        $newrecording->recordingid = uniqid();
-        $newrecording->meetingid = strtotime($data->createdDateTime);
-        $newrecording->email = $data->createdBy->user->email;
+        $newrecording->topic = $topic;
+        $newrecording->recordingid = $dedupekey;
+        $newrecording->meetingid = (int) $meetingid;
+        $newrecording->email = $email;
         $newrecording->timecreated = time();
-        $newrecording->duration = $this->seconds_to_hms($data->video->duration / 1000);
+        $newrecording->duration = $duration;
         $newrecording->endtime = $currdate;
         $newrecording->embedded = 0;
         $newrecording->visible = ($this->config->hidefromstudents ? 0 : 1);
-        $newrecording->recordingdata =
-                json_encode(['download_url' => $data->{'@microsoft.graph.downloadUrl'}, 'fileid' => $data->id,
-                        'file_size' => $data->size,
-                        'play_url' => $data->webUrl]);
+
+        $rd = [
+                'download_url' => $download,
+                'fileid' => $itemid,
+                'file_size' => isset($data->size) ? (int) $data->size : 0,
+                'play_url' => isset($data->webUrl) ? (string) $data->webUrl : '',
+        ];
+        if ($drivearg !== null) {
+            $rd['driveid'] = $drivearg;
+        }
+        $newrecording->recordingdata = json_encode($rd);
         $newrecording->starttime = $start;
-        $newrecording->fileid = $data->id;
+        $newrecording->fileid = $itemid;
+        $newrecording->meetingdata = json_encode(['graphItemId' => $itemid, 'driveId' => $drivearg]);
 
         // Publish immediately.
         if ($this->config->storage == $this::STORAGE_NODOWNLOAD) {
@@ -2028,7 +2456,7 @@ class local_stream_help {
 
         $DB->insert_record('local_stream_rec', $newrecording);
 
-        mtrace('Added Meeting: ' . $data->id);
+        mtrace('Added Meeting: ' . $itemid);
 
         return true;
     }
@@ -2037,6 +2465,13 @@ class local_stream_help {
      * Lists Microsoft Teams recordings.
      */
     public function listing_teams() {
+
+        $site = isset($this->config->teamssharepointsite) ? trim((string) $this->config->teamssharepointsite) : '';
+        if ($site !== '') {
+            mtrace('Teams: listing from SharePoint site (Graph drives).');
+            $this->listing_teams_sharepoint_site($site);
+            return;
+        }
 
         foreach ($this->teams_groups_owners() as $owner) {
             mtrace('Checking Recording for: ' . $owner);
