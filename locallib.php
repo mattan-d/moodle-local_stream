@@ -1880,7 +1880,9 @@ class local_stream_help {
 
         list($jsonresult, $code) = $this->teams_graph_request_get($path);
         if ($code >= 400) {
-            mtrace('Teams Graph error HTTP ' . $code . ' for ' . substr($path, 0, 160));
+            $snippet = is_string($jsonresult) ? substr($jsonresult, 0, 300) : '';
+            mtrace('Teams Graph error HTTP ' . $code . ' for ' . substr($path, 0, 160) .
+                    ($snippet !== '' ? ' — ' . $snippet : ''));
             return null;
         }
         return json_decode($jsonresult);
@@ -2046,13 +2048,15 @@ class local_stream_help {
      * @param string $itemid
      * @return stdClass|null
      */
-    private function teams_graph_drive_item_metadata($driveid, $owneremail, $itemid) {
-        $select = 'id,name,size,createdDateTime,webUrl,file,@microsoft.graph.downloadUrl';
-        $query = '$select=' . rawurlencode($select);
+    private function teams_graph_drive_item_metadata($driveid, $owneremail, $itemid, $withselect = true) {
         if ($driveid !== null && $driveid !== '') {
-            $path = '/drives/' . rawurlencode($driveid) . '/items/' . rawurlencode($itemid) . '?' . $query;
+            $path = '/drives/' . rawurlencode($driveid) . '/items/' . rawurlencode($itemid);
         } else {
-            $path = '/users/' . rawurlencode($owneremail) . '/drive/items/' . rawurlencode($itemid) . '?' . $query;
+            $path = '/users/' . rawurlencode($owneremail) . '/drive/items/' . rawurlencode($itemid);
+        }
+        if ($withselect) {
+            $select = 'id,name,size,createdDateTime,webUrl,file';
+            $path .= '?' . '$select=' . rawurlencode($select);
         }
         $obj = $this->teams_make_request($path);
         if (!$obj || (!is_object($obj) && !is_array($obj))) {
@@ -2118,19 +2122,21 @@ class local_stream_help {
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_FOLLOWLOCATION => false,
                 CURLOPT_HEADER => true,
-                CURLOPT_NOBODY => true,
                 CURLOPT_HTTPHEADER => [
                         'Authorization: Bearer ' . $tok,
                         'Accept: */*',
+                        'Range: bytes=0-0',
                 ],
                 CURLOPT_CONNECTTIMEOUT => 25,
                 CURLOPT_TIMEOUT => 120,
         ]);
         $response = curl_exec($ch);
         if ($response === false) {
+            mtrace('Teams: /content request failed for item ' . substr($itemid, 0, 24) . '…');
             curl_close($ch);
             return '';
         }
+        $httpcode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $headerblock = '';
         $headersize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
         if ($headersize > 0) {
@@ -2149,6 +2155,9 @@ class local_stream_help {
         }
         if (preg_match('/^Location:\s*(.+)$/mi', $headerblock, $m)) {
             return trim($m[1], " \t\r\n\"'");
+        }
+        if ($httpcode >= 400) {
+            mtrace('Teams: /content HTTP ' . $httpcode . ' for item ' . substr($itemid, 0, 24) . '…');
         }
         return '';
     }
@@ -2174,35 +2183,73 @@ class local_stream_help {
     }
 
     /**
+     * Resolve a fresh pre-authenticated download URL for a Graph drive item.
+     *
+     * @param string|null $driveid SharePoint drive id when known.
+     * @param string $owneremail Used for OneDrive paths when driveid is empty.
+     * @param string $itemid Graph drive item id.
+     * @param mixed|null $hint Listing payload to scan first (optional).
+     * @return string Download URL or empty string.
+     */
+    private function teams_graph_resolve_download_url($driveid, $owneremail, $itemid, $hint = null) {
+        $fromhint = $hint !== null ? $this->teams_graph_find_download_url($hint) : '';
+        if ($fromhint !== '') {
+            return $fromhint;
+        }
+
+        $drivearg = ($driveid !== null && $driveid !== '') ? $driveid : null;
+        $detail = $this->teams_graph_drive_item_metadata($drivearg, $owneremail, $itemid, true);
+        $download = $this->teams_resolve_drive_item_download_url($drivearg, $owneremail, $itemid, $detail);
+        if ($download !== '') {
+            return $download;
+        }
+
+        $detailfull = $this->teams_graph_drive_item_metadata($drivearg, $owneremail, $itemid, false);
+        return $this->teams_resolve_drive_item_download_url($drivearg, $owneremail, $itemid, $detailfull);
+    }
+
+    /**
      * Refresh Graph pre-authenticated download URL before Stream ingest (URLs expire).
      *
      * @param stdClass $meeting Row from local_stream_rec (updated in DB when a new URL is found).
-     * @return void
+     * @return bool True when a new download URL was stored.
      */
     public function teams_refresh_recording_download_url($meeting) {
         global $DB;
         if (empty($meeting->recordingdata) || empty($meeting->email)) {
-            return;
+            return false;
         }
         $rd = json_decode($meeting->recordingdata);
         if (!$rd || empty($rd->fileid)) {
-            return;
+            return false;
         }
         $fileid = (string) $rd->fileid;
         $driveid = isset($rd->driveid) ? (string) $rd->driveid : '';
+        if ($driveid === '' && !empty($meeting->meetingdata)) {
+            $md = json_decode($meeting->meetingdata);
+            if ($md && !empty($md->driveId)) {
+                $driveid = (string) $md->driveId;
+            }
+        }
         $drivearg = ($driveid !== '') ? $driveid : null;
-        $detail = $this->teams_graph_drive_item_metadata($drivearg, (string) $meeting->email, $fileid);
-        $download = $this->teams_resolve_drive_item_download_url($drivearg, (string) $meeting->email, $fileid, $detail);
+        $download = $this->teams_graph_resolve_download_url($drivearg, (string) $meeting->email, $fileid);
         if ($download === '') {
-            mtrace('Teams: could not refresh download URL for recording #' . $meeting->id);
-            return;
+            mtrace('Teams: could not refresh download URL for recording #' . $meeting->id .
+                    ' (drive ' . ($driveid !== '' ? 'yes' : 'no') . ', fileid ' . substr($fileid, 0, 20) . '…)');
+            return false;
         }
         $rd->download_url = $download;
+        $detail = $this->teams_graph_drive_item_metadata($drivearg, (string) $meeting->email, $fileid, true);
         if ($detail && !empty($detail->webUrl)) {
             $rd->play_url = $detail->webUrl;
         }
+        if ($driveid !== '' && empty($rd->driveid)) {
+            $rd->driveid = $driveid;
+        }
         $meeting->recordingdata = json_encode($rd);
         $DB->update_record('local_stream_rec', $meeting);
+        mtrace('Teams: refreshed download URL for recording #' . $meeting->id);
+        return true;
     }
 
     /**
@@ -2329,6 +2376,65 @@ class local_stream_help {
     }
 
     /**
+     * Configured fallback owner email, or primary site admin when unset.
+     *
+     * @return string Lowercase email, or empty if none available.
+     */
+    private function teams_fallback_owner_email(): string {
+        $configured = isset($this->config->teamsfallbackemail)
+                ? strtolower(trim((string) $this->config->teamsfallbackemail))
+                : '';
+        if ($configured !== '' && strpos($configured, '@') !== false) {
+            return $configured;
+        }
+
+        $admin = get_admin();
+        if ($admin && !empty($admin->email) && strpos($admin->email, '@') !== false) {
+            return strtolower(trim($admin->email));
+        }
+
+        return '';
+    }
+
+    /**
+     * Read email from a Graph identitySet (createdBy / lastModifiedBy).
+     *
+     * @param mixed $identity Graph identitySet object.
+     * @return string
+     */
+    private function teams_identity_set_email($identity): string {
+        if (!$identity || !is_object($identity) || !isset($identity->user) || !is_object($identity->user)) {
+            return '';
+        }
+        $user = $identity->user;
+        if (!empty($user->email) && strpos($user->email, '@') !== false) {
+            return strtolower(trim((string) $user->email));
+        }
+        if (!empty($user->userPrincipalName) && strpos($user->userPrincipalName, '@') !== false) {
+            return strtolower(trim((string) $user->userPrincipalName));
+        }
+        return '';
+    }
+
+    /**
+     * Owner email for a drive item: Graph creator/modifier, then admin fallback.
+     *
+     * @param object $data Graph driveItem.
+     * @return string
+     */
+    private function teams_resolve_owner_email($data): string {
+        foreach (['createdBy', 'lastModifiedBy'] as $field) {
+            if (isset($data->$field)) {
+                $email = $this->teams_identity_set_email($data->$field);
+                if ($email !== '') {
+                    return $email;
+                }
+            }
+        }
+        return $this->teams_fallback_owner_email();
+    }
+
+    /**
      * Parses course id and section name from a Teams recording file name.
      *
      * Expected prefix: "קורס {id}, {section name}, ..." e.g.
@@ -2400,25 +2506,13 @@ class local_stream_help {
             return false;
         }
 
-        $email = '';
-        if (isset($data->createdBy->user->email)) {
-            $email = strtolower((string) $data->createdBy->user->email);
-        } else if (isset($data->createdBy->user->userPrincipalName)) {
-            $email = strtolower((string) $data->createdBy->user->userPrincipalName);
-        }
-        if ($email === '' || strpos($email, '@') === false) {
-            mtrace('Skip Meeting (no owner email): ' . $itemid);
+        $email = $this->teams_resolve_owner_email($data);
+        if ($email === '') {
+            mtrace('Skip Meeting (no owner email and no site admin fallback): ' . $itemid);
             return false;
         }
 
-        $detail = $this->teams_graph_drive_item_metadata($drivearg, $email, $itemid);
-        $download = $this->teams_graph_find_download_url($data);
-        if ($download === '' && $detail) {
-            $download = $this->teams_graph_find_download_url($detail);
-        }
-        if ($download === '') {
-            $download = $this->teams_resolve_drive_item_download_url($drivearg, $email, $itemid, $detail);
-        }
+        $download = $this->teams_graph_resolve_download_url($drivearg, $email, $itemid, $data);
         if ($download === '') {
             mtrace('Skip Meeting (no download URL): ' . $itemid);
             return false;

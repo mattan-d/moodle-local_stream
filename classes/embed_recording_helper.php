@@ -108,9 +108,13 @@ class embed_recording_helper {
             $teamsinstanceid = null;
 
             if ($details['courseid'] > 0) {
-                $logfn('Teams: course #' . $details['courseid'] . ' from recording name: ' . $meeting->topic);
-                $platform = new \stdClass();
-                $platform->course = $details['courseid'];
+                if ($DB->record_exists('course', ['id' => $details['courseid']])) {
+                    $logfn('Teams: course #' . $details['courseid'] . ' from recording name: ' . $meeting->topic);
+                    $platform = new \stdClass();
+                    $platform->course = $details['courseid'];
+                } else {
+                    $logfn('Teams: course #' . $details['courseid'] . ' from recording name does not exist; skipping course embed.');
+                }
             }
 
             $pattern = '/^.*:meeting_([A-Za-z0-9]+)@thread\.v2$/';

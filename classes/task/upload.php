@@ -81,6 +81,7 @@ class upload extends \core\task\scheduled_task {
 
             // Meeting data for stream.
             $stream = [];
+            $course = null;
 
             // Webex.
             if ($help->config->platform == $help::PLATFORM_WEBEX) {
@@ -98,6 +99,24 @@ class upload extends \core\task\scheduled_task {
                         $stream['coursename'] = $course->fullname;
                         $stream['courseid'] = $course->id;
                     }
+                }
+            }
+
+            // Teams.
+            if ($help->config->platform == $help::PLATFORM_TEAMS) {
+                $courseid = (int) $meeting->course;
+                if ($courseid <= 0) {
+                    $coursedata = $help->teams_course_data($meeting->topic);
+                    $courseid = (int) $coursedata['courseid'];
+                }
+                if ($courseid > 0 && $DB->record_exists('course', ['id' => $courseid])) {
+                    $course = get_course($courseid);
+                    $stream['tags'] = $help->get_category_tree($course->category);
+                    $course->page = new \moodle_url('/course/view.php', ['id' => $course->id]);
+                    $stream['description'] =
+                            '[Teams] ' . $meeting->topic . "\n\n" . $course->fullname . "\n" . $course->page . "\n";
+                    $stream['coursename'] = $course->fullname;
+                    $stream['courseid'] = $course->id;
                 }
             }
 
@@ -142,7 +161,7 @@ class upload extends \core\task\scheduled_task {
                 $stream['username'] = $user->username;
             }
 
-            $stream['downloadurl'] = $recordingdata->download_url;
+            $stream['downloadurl'] = $recordingdata->download_url ?? '';
             $stream['category'] = $help->config->streamcategoryid;
             $stream['recordingdata'] = json_encode($meeting->recordingdata);
             $stream['meetingdata'] = json_encode($meeting->meetingdata);

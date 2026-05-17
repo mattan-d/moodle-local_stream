@@ -120,6 +120,11 @@ if ($hassiteconfig) {
             get_string('teamssharepointsite_desc', 'local_stream'), ''));
     $settings->hide_if('local_stream/teamssharepointsite', 'local_stream/platform', 'in', '0|1|3');
 
+    $settings->add(new admin_setting_configtext('local_stream/teamsfallbackemail',
+            get_string('teamsfallbackemail', 'local_stream'),
+            get_string('teamsfallbackemail_desc', 'local_stream'), ''));
+    $settings->hide_if('local_stream/teamsfallbackemail', 'local_stream/platform', 'in', '0|1|3');
+
     // WEBEX.
     $settings->add(new admin_setting_configtext('local_stream/webexjwt',
             get_string('webexjwt', 'local_stream'), '', ''));
