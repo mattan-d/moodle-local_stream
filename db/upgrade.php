@@ -77,5 +77,15 @@ function xmldb_local_stream_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026031800, 'local', 'stream');
     }
 
+    if ($oldversion < 2026051700) {
+        require_once($CFG->dirroot . '/local/stream/locallib.php');
+        $help = new local_stream_help();
+        $help->migrate_legacy_zoom_integration([
+                'migrateconfig' => true,
+                'migraterecords' => $help->legacy_zoom_rec_table_exists(),
+        ]);
+        upgrade_plugin_savepoint(true, 2026051700, 'local', 'stream');
+    }
+
     return true;
 }

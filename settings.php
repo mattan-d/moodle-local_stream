@@ -22,25 +22,23 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die;
-
-require_once(__DIR__ . '/locallib.php');
-require_once($CFG->libdir . '/accesslib.php');
-
-$help = new local_stream_help();
-
-$ADMIN->add('localplugins', new admin_category('localstreamfolder',
-        get_string('pluginname', 'local_stream')));
+defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
+    require_once(__DIR__ . '/locallib.php');
+    require_once($CFG->libdir . '/accesslib.php');
+
+    $ADMIN->add('localplugins', new admin_category('localstreamfolder',
+            get_string('pluginname', 'local_stream')));
 
     $settings = new admin_settingpage('local_stream_settings', new lang_string('settingspage', 'local_stream'));
     $settings->add(new admin_setting_heading('settingspage', get_string('settingspage', 'local_stream'), ''));
-    $options = [
-            $help::PLATFORM_ZOOM => get_string('zoom', 'local_stream'),
-            $help::PLATFORM_WEBEX => get_string('webex', 'local_stream'),
-            $help::PLATFORM_TEAMS => get_string('teams', 'local_stream'),
-            $help::PLATFORM_UNICKO => get_string('unicko', 'local_stream'),
+
+    $platformoptions = [
+            local_stream_help::PLATFORM_ZOOM => get_string('zoom', 'local_stream'),
+            local_stream_help::PLATFORM_WEBEX => get_string('webex', 'local_stream'),
+            local_stream_help::PLATFORM_TEAMS => get_string('teams', 'local_stream'),
+            local_stream_help::PLATFORM_UNICKO => get_string('unicko', 'local_stream'),
     ];
 
     $settings->add(new admin_setting_configtext('local_stream/streamurl',
@@ -53,12 +51,12 @@ if ($hassiteconfig) {
             get_string('streamcategoryid', 'local_stream'), '', ''));
 
     $settings->add(new admin_setting_configselect('local_stream/platform',
-            get_string('platform', 'local_stream'), get_string('platform_desc', 'local_stream'), 0, $options));
+            get_string('platform', 'local_stream'), get_string('platform_desc', 'local_stream'), 0, $platformoptions));
 
     $settings->add(new admin_setting_configselect('local_stream/storage',
-            get_string('storage', 'local_stream'), '', $help::STORAGE_STREAM, [
-                    $help::STORAGE_STREAM => 'Stream',
-                    $help::STORAGE_NODOWNLOAD => get_string('nodownload', 'local_stream'),
+            get_string('storage', 'local_stream'), '', local_stream_help::STORAGE_STREAM, [
+                    local_stream_help::STORAGE_STREAM => 'Stream',
+                    local_stream_help::STORAGE_NODOWNLOAD => get_string('nodownload', 'local_stream'),
             ]));
 
     $options = [
@@ -214,7 +212,6 @@ if ($hassiteconfig) {
             get_string('prefix', 'local_stream'), get_string('prefix_desc', 'local_stream'), ''));
     $settings->add(new admin_setting_configcheckbox('local_stream/adddate',
             get_string('adddate', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/nodownload', 'local_stream/platform', 'in', '0|2');
 
     $settings->add(new admin_setting_configcheckbox('local_stream/hidefromstudents',
             get_string('hidefromstudents'), '', ''));
@@ -241,20 +238,15 @@ if ($hassiteconfig) {
             get_string('defaultcollectionmode', 'local_stream'),
             get_string('defaultcollectionmode_desc', 'local_stream'), '1'));
     $settings->hide_if('local_stream/defaultcollectionmode', 'local_stream/platform', 'in', '1|2|3');
+
+    $ADMIN->add('localstreamfolder', $settings);
+
+    $ADMIN->add('localstreamfolder', new admin_externalpage('local_stream_zoom_stats',
+            get_string('zoom_account_stats', 'local_stream'), new moodle_url('/local/stream/zoom_stats.php')));
+
+    $ADMIN->add('localstreamfolder', new admin_externalpage('local_stream_zoom_group_exclusions',
+            get_string('zoom_revoke_excluded_groups', 'local_stream'), new moodle_url('/local/stream/zoom_group_exclusions.php')));
+
+    $ADMIN->add('localstreamfolder', new admin_externalpage('local_stream',
+            get_string('browselist', 'local_stream'), new moodle_url('/local/stream/index.php')));
 }
-
-// This adds the settings link to the folder/submenu.
-$ADMIN->add('localstreamfolder', $settings);
-
-// Zoom account statistics (only relevant when platform is Zoom; page redirects if not).
-$ADMIN->add('localstreamfolder', new admin_externalpage('local_stream_zoom_stats',
-        get_string('zoom_account_stats', 'local_stream'), new moodle_url('/local/stream/zoom_stats.php')));
-
-// Zoom groups exclusions for revoke mechanism.
-$ADMIN->add('localstreamfolder', new admin_externalpage('local_stream_zoom_group_exclusions',
-        get_string('zoom_revoke_excluded_groups', 'local_stream'), new moodle_url('/local/stream/zoom_group_exclusions.php')));
-
-// This adds a link to an external page.
-$ADMIN->add('localstreamfolder', new admin_externalpage('local_stream',
-        get_string('browselist', 'local_stream'), new moodle_url('/local/stream/index.php')
-));
