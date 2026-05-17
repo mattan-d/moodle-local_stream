@@ -33,14 +33,17 @@ list($options, $unrecognized) = cli_get_params(
                 'dry-run' => false,
                 'update' => false,
                 'migrate-config' => false,
+                'match' => 'recordingid',
                 'from-id' => 0,
                 'limit' => 0,
                 'batch-size' => 200,
+                'verbose' => false,
         ],
         [
                 'h' => 'help',
                 'n' => 'dry-run',
                 'u' => 'update',
+                'v' => 'verbose',
         ]
 );
 
@@ -49,35 +52,43 @@ if ($unrecognized) {
     cli_error(get_string('cliunknowoption', 'admin', $unrecognized));
 }
 
+$matchmodes = ['recordingid', 'legacyid', 'both'];
 if ($options['help']) {
     echo "Sync recordings from legacy table {local_zoom_integration_rec} to {local_stream_rec}.
 
-By default only rows whose recordingid is not yet in local_stream_rec are inserted.
-Use --update to refresh existing rows in local_stream_rec from the legacy table.
+By default only rows not yet present are inserted (see --match).
+Use --update to overwrite existing rows in local_stream_rec from the legacy table.
 
 Options:
 -n, --dry-run           Show what would be done without writing
--u, --update            Update existing local_stream_rec rows (matched by recordingid)
+-u, --update            Update existing local_stream_rec rows
+    --match=MODE        How to detect an existing row (default: recordingid)
+                        recordingid - match on recordingid column (install.php behaviour)
+                        legacyid    - match on primary key id; new rows keep legacy id
+                        both        - try legacy id first, then recordingid
     --migrate-config    Copy plugin settings from local_zoom_integration to local_stream
     --from-id=ID        Process legacy rows with id greater than ID (default 0)
     --limit=N           Stop after N legacy rows (0 = no limit)
-    --batch-size=N      Commit progress every N rows (default 200)
+    --batch-size=N      Progress message every N rows (default 200)
+-v, --verbose           Log each skip/insert/update
 -h, --help              Show this help
 
-Legacy-only columns (ignored): vimeoid, remote.
-New columns (left unchanged on update): embedded_at, zoom_cloud_deleted.
-
 Examples:
-\$ php local/stream/cli/migrate_legacy.php --dry-run
 \$ php local/stream/cli/migrate_legacy.php
 \$ php local/stream/cli/migrate_legacy.php --update
-\$ php local/stream/cli/migrate_legacy.php --migrate-config --from-id=1000 --limit=500
+\$ php local/stream/cli/migrate_legacy.php --match=legacyid --update
+\$ php local/stream/cli/migrate_legacy.php --dry-run --verbose
 ";
     exit(0);
 }
 
 $dryrun = !empty($options['dry-run']);
 $update = !empty($options['update']);
+$verbose = !empty($options['verbose']);
+$match = strtolower((string) $options['match']);
+if (!in_array($match, $matchmodes, true)) {
+    cli_error('Invalid --match. Use: ' . implode(', ', $matchmodes));
+}
 $fromid = max(0, (int) $options['from-id']);
 $limit = max(0, (int) $options['limit']);
 $batchsize = max(1, (int) $options['batch-size']);
@@ -117,13 +128,79 @@ $maplegacy = static function(\stdClass $legacy): \stdClass {
     return $row;
 };
 
+/**
+ * Find target row for a legacy recording.
+ *
+ * @param \stdClass $legacy
+ * @param string $match
+ * @return \stdClass|false
+ */
+$findexisting = static function(\stdClass $legacy, string $match) {
+    global $DB;
+    $byid = false;
+    $byrecordingid = false;
+
+    if ($match === 'legacyid' || $match === 'both') {
+        $byid = $DB->get_record('local_stream_rec', ['id' => $legacy->id]);
+    }
+    if ($match === 'recordingid' || ($match === 'both' && !$byid)) {
+        $rid = trim((string) $legacy->recordingid);
+        if ($rid !== '') {
+            $byrecordingid = $DB->get_record('local_stream_rec', ['recordingid' => $rid]);
+        }
+    }
+
+    if ($byid && $byrecordingid && (int) $byid->id !== (int) $byrecordingid->id) {
+        return $byid;
+    }
+    return $byid ?: $byrecordingid;
+};
+
 cli_writeln('Legacy sync: local_zoom_integration_rec -> local_stream_rec');
 cli_writeln('Dry run: ' . ($dryrun ? 'yes' : 'no'));
 cli_writeln('Update existing: ' . ($update ? 'yes' : 'no'));
+cli_writeln('Match mode: ' . $match);
 cli_writeln('From legacy id > ' . $fromid);
 if ($limit > 0) {
     cli_writeln('Limit: ' . $limit);
 }
+cli_writeln(str_repeat('-', 60));
+
+$legacysql = 'SELECT COUNT(1) FROM {local_zoom_integration_rec} WHERE id > :fromid AND recordingid <> :empty';
+$legacyparams = ['fromid' => $fromid, 'empty' => ''];
+$legacycount = (int) $DB->get_field_sql($legacysql, $legacyparams);
+$streamcount = (int) $DB->count_records('local_stream_rec');
+
+$overlaprecordingid = (int) $DB->get_field_sql(
+        "SELECT COUNT(1)
+           FROM {local_zoom_integration_rec} l
+           JOIN {local_stream_rec} s ON s.recordingid = l.recordingid
+          WHERE l.id > :fromid AND l.recordingid <> :empty",
+        $legacyparams
+);
+
+$overlaplegacyid = (int) $DB->get_field_sql(
+        "SELECT COUNT(1)
+           FROM {local_zoom_integration_rec} l
+           JOIN {local_stream_rec} s ON s.id = l.id
+          WHERE l.id > :fromid AND l.recordingid <> :empty",
+        $legacyparams
+);
+
+$missingrecordingid = (int) $DB->get_field_sql(
+        "SELECT COUNT(1)
+           FROM {local_zoom_integration_rec} l
+      LEFT JOIN {local_stream_rec} s ON s.recordingid = l.recordingid
+          WHERE l.id > :fromid AND l.recordingid <> :empty AND s.id IS NULL",
+        $legacyparams
+);
+
+cli_writeln('Table counts:');
+cli_writeln('  legacy rows (recordingid not empty, id > ' . $fromid . '): ' . $legacycount);
+cli_writeln('  local_stream_rec rows (total): ' . $streamcount);
+cli_writeln('  overlap by recordingid: ' . $overlaprecordingid);
+cli_writeln('  overlap by legacy id: ' . $overlaplegacyid);
+cli_writeln('  legacy only (no stream row with same recordingid): ' . $missingrecordingid);
 cli_writeln(str_repeat('-', 60));
 
 if (!empty($options['migrate-config'])) {
@@ -167,40 +244,60 @@ foreach ($legacyrows as $legacy) {
     }
 
     $stats['processed']++;
-    $recordingid = (string) $legacy->recordingid;
+    $recordingid = trim((string) $legacy->recordingid);
 
     if ($recordingid === '') {
         $stats['skipped']++;
-        cli_writeln('Skip legacy id ' . $legacy->id . ': empty recordingid.');
+        if ($verbose) {
+            cli_writeln('Skip legacy id ' . $legacy->id . ': empty recordingid.');
+        }
         continue;
     }
 
     $row = $maplegacy($legacy);
-    $existing = $DB->get_record('local_stream_rec', ['recordingid' => $recordingid]);
+    $existing = $findexisting($legacy, $match);
 
     try {
         if ($existing) {
             if (!$update) {
                 $stats['skipped']++;
+                if ($verbose) {
+                    cli_writeln('Skip legacy id ' . $legacy->id . ': exists as stream_rec id ' . $existing->id
+                            . ' (recordingid ' . $recordingid . ').');
+                }
                 continue;
             }
             $row->id = $existing->id;
             if ($dryrun) {
                 $stats['updated']++;
-                cli_writeln('[dry-run] Would update stream_rec id ' . $existing->id . ' from legacy id ' . $legacy->id);
+                if ($verbose) {
+                    cli_writeln('[dry-run] Would update stream_rec id ' . $existing->id . ' from legacy id ' . $legacy->id);
+                }
             } else {
                 $DB->update_record('local_stream_rec', $row);
                 $stats['updated']++;
+                if ($verbose) {
+                    cli_writeln('Updated stream_rec id ' . $existing->id . ' from legacy id ' . $legacy->id);
+                }
             }
         } else {
+            if ($match === 'legacyid' || $match === 'both') {
+                $row->id = (int) $legacy->id;
+            }
             $row->embedded_at = 0;
             $row->zoom_cloud_deleted = 0;
             if ($dryrun) {
                 $stats['inserted']++;
-                cli_writeln('[dry-run] Would insert recordingid ' . $recordingid . ' (legacy id ' . $legacy->id . ')');
+                if ($verbose) {
+                    $idhint = isset($row->id) ? (' as id ' . $row->id) : '';
+                    cli_writeln('[dry-run] Would insert recordingid ' . $recordingid . ' (legacy id ' . $legacy->id . ')' . $idhint);
+                }
             } else {
                 $DB->insert_record('local_stream_rec', $row);
                 $stats['inserted']++;
+                if ($verbose) {
+                    cli_writeln('Inserted recordingid ' . $recordingid . ' (legacy id ' . $legacy->id . ')');
+                }
             }
         }
     } catch (\Exception $e) {
@@ -219,5 +316,17 @@ cli_writeln('Inserted:  ' . $stats['inserted']);
 cli_writeln('Updated:   ' . $stats['updated']);
 cli_writeln('Skipped:   ' . $stats['skipped']);
 cli_writeln('Errors:    ' . $stats['errors']);
+
+if ($stats['inserted'] === 0 && $stats['updated'] === 0 && $stats['skipped'] > 0 && !$update) {
+    cli_writeln('');
+    cli_writeln('All rows were skipped because matching rows already exist in local_stream_rec.');
+    cli_writeln('If the dashboard still looks empty, data may already be migrated — verify:');
+    cli_writeln('  SELECT COUNT(*) FROM {local_stream_rec};');
+    cli_writeln('To refresh existing rows from the legacy table, run:');
+    cli_writeln('  php local/stream/cli/migrate_legacy.php --update');
+    cli_writeln('To match by legacy primary key id instead of recordingid:');
+    cli_writeln('  php local/stream/cli/migrate_legacy.php --match=legacyid --update');
+}
+
 cli_writeln($dryrun ? 'Dry run finished.' : 'Sync finished.');
 exit($stats['errors'] > 0 ? 1 : 0);
