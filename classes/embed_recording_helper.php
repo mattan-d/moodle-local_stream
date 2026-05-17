@@ -104,25 +104,33 @@ class embed_recording_helper {
         }
 
         if ($help->config->platform == $help::PLATFORM_TEAMS) {
-            $pattern = '/^.*:meeting_([A-Za-z0-9]+)@thread\.v2$/';
+            $details = $help->teams_course_data($meeting->topic);
             $teamsinstanceid = null;
+
+            if ($details['courseid'] > 0) {
+                $logfn('Teams: course #' . $details['courseid'] . ' from recording name: ' . $meeting->topic);
+                $platform = new \stdClass();
+                $platform->course = $details['courseid'];
+            }
+
+            $pattern = '/^.*:meeting_([A-Za-z0-9]+)@thread\.v2$/';
             if (preg_match($pattern, $meeting->recordingid, $matches)) {
                 $tmpmeetingid = $matches[1];
                 $logfn('checking meeting: ' . $meeting->recordingid);
                 $likesql = $DB->sql_like('externalurl', ':externalurl');
-                $platform = $DB->get_record_sql(
+                $msteams = $DB->get_record_sql(
                         "SELECT id, course FROM {msteams} WHERE {$likesql}",
                         ['externalurl' => '%' . $tmpmeetingid . '%']
                 );
-                if ($platform) {
-                    $teamsinstanceid = $platform->id;
+                if ($msteams) {
+                    $teamsinstanceid = $msteams->id;
+                    if (!$platform) {
+                        $platform = $msteams;
+                    }
                 }
             }
 
-            $details = $help->teams_course_data($meeting->topic);
-            if ($details['courseid'] > 0) {
-                $platform = new \stdClass();
-                $platform->course = $details['courseid'];
+            if ($platform && $teamsinstanceid) {
                 $platform->id = $teamsinstanceid;
             }
         }

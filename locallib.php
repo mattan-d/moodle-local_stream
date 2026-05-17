@@ -2329,21 +2329,40 @@ class local_stream_help {
     }
 
     /**
-     * Parses course data from a given string.
+     * Parses course id and section name from a Teams recording file name.
      *
-     * @param string $data The course data string.
-     * @return array The parsed course ID and section name.
+     * Expected prefix: "קורס {id}, {section name}, ..." e.g.
+     * "קורס 736, מבוגר עיניים אאג 3, הנושא ...-הקלטת פגישה.mp4"
+     *
+     * @param string $data Recording display name / topic.
+     * @return array{courseid: int, sectionname: string}
      */
     public function teams_course_data($data) {
-        $parts = explode(',', $data);
-        if (strpos($parts[0], 'קורס') !== false) {
-            $courseid = trim($parts[0]);
-            $courseid = preg_replace('/[^0-9]/', '', $courseid);
+        $data = trim((string) $data);
+        $data = preg_replace('/\.(mp4|mov|webm|mkv|m4v)$/iu', '', $data);
+
+        $courseid = -1;
+        $sectionname = '';
+
+        if (preg_match('/^קורס\s+(\d+)\s*,\s*(.*?)(?:\s*,|$)/u', $data, $matches)) {
+            $courseid = (int) $matches[1];
+            $sectionname = trim($matches[2]);
         } else {
-            $courseid = -1;
+            $parts = explode(',', $data);
+            if (isset($parts[0]) && mb_strpos($parts[0], 'קורס') !== false) {
+                $digits = preg_replace('/\D/u', '', $parts[0]);
+                if ($digits !== '') {
+                    $courseid = (int) $digits;
+                }
+                if (isset($parts[1])) {
+                    $sectionname = trim($parts[1]);
+                }
+            }
         }
 
-        $sectionname = trim($parts[1]);
+        if ($courseid <= 0) {
+            $courseid = -1;
+        }
 
         return [
                 'courseid' => $courseid,
@@ -2426,6 +2445,10 @@ class local_stream_help {
         $currdate = gmdate('Y-m-d\TH:i:s\Z');
         $newrecording = new stdClass();
         $newrecording->topic = $topic;
+        $coursedata = $this->teams_course_data($topic);
+        if ($coursedata['courseid'] > 0 && $DB->record_exists('course', ['id' => $coursedata['courseid']])) {
+            $newrecording->course = $coursedata['courseid'];
+        }
         $newrecording->recordingid = $dedupekey;
         $newrecording->meetingid = (int) $meetingid;
         $newrecording->email = $email;
