@@ -2769,4 +2769,176 @@ class local_stream_help {
 
         return ['error' => false, 'payload' => $decoded];
     }
+
+    /** @var string Legacy recordings table from local_zoom_integration. */
+    public const LEGACY_ZOOM_REC_TABLE = 'local_zoom_integration_rec';
+
+    /** @var string Legacy plugin component for settings migration. */
+    public const LEGACY_ZOOM_PLUGIN = 'local_zoom_integration';
+
+    /**
+     * Column names copied from legacy local_zoom_integration_rec into local_stream_rec.
+     *
+     * @return string[]
+     */
+    public static function migrate_legacy_recording_fields(): array {
+        return [
+                'topic', 'email', 'dept', 'starttime', 'endtime', 'duration', 'participants',
+                'meetingid', 'recordingid', 'timecreated', 'visible', 'embedded', 'course',
+                'status', 'tries', 'views', 'streamid', 'meetingdata', 'recordingdata',
+                'moduleid', 'fileid',
+        ];
+    }
+
+    /**
+     * Whether the legacy recordings table still exists.
+     *
+     * @return bool
+     */
+    public function legacy_zoom_rec_table_exists(): bool {
+        global $DB;
+        return $DB->get_manager()->table_exists(new \xmldb_table(self::LEGACY_ZOOM_REC_TABLE));
+    }
+
+    /**
+     * Map one legacy row to a local_stream_rec insert/update object.
+     *
+     * @param \stdClass $legacy Row from local_zoom_integration_rec.
+     * @return \stdClass|null Null when recordingid is empty.
+     */
+    public function migrate_legacy_zoom_prepare_record(\stdClass $legacy): ?\stdClass {
+        $recordingid = isset($legacy->recordingid) ? trim((string) $legacy->recordingid) : '';
+        if ($recordingid === '') {
+            return null;
+        }
+
+        $record = new \stdClass();
+        foreach (self::migrate_legacy_recording_fields() as $field) {
+            if (property_exists($legacy, $field)) {
+                $record->$field = $legacy->$field;
+            }
+        }
+        $record->recordingid = $recordingid;
+
+        if (!property_exists($record, 'embedded_at')) {
+            $record->embedded_at = 0;
+        }
+        if (!property_exists($record, 'zoom_cloud_deleted')) {
+            $record->zoom_cloud_deleted = 0;
+        }
+
+        return $record;
+    }
+
+    /**
+     * Migrate settings and/or recordings from local_zoom_integration to local_stream.
+     *
+     * @param array $options {
+     *     @type bool $migrateconfig Migrate plugin config (default true).
+     *     @type bool $migraterecords Migrate recording rows (default true).
+     *     @type bool $dryrun No writes (default false).
+     *     @type bool $updateexisting Update rows that already exist by recordingid (default false).
+     *     @type int|null $limit Max legacy rows to process (default null = all).
+     *     @type callable|null $log function(string $msg): void
+     * }
+     * @return array{config_keys: int, inserted: int, updated: int, skipped: int, invalid: int}
+     */
+    public function migrate_legacy_zoom_integration(array $options = []): array {
+        global $DB;
+
+        $migrateconfig = array_key_exists('migrateconfig', $options) ? (bool) $options['migrateconfig'] : true;
+        $migraterecords = array_key_exists('migraterecords', $options) ? (bool) $options['migraterecords'] : true;
+        $dryrun = !empty($options['dryrun']);
+        $updateexisting = !empty($options['updateexisting']);
+        $limit = isset($options['limit']) ? (int) $options['limit'] : null;
+        $log = $options['log'] ?? function(string $msg): void {
+            mtrace($msg);
+        };
+
+        $stats = [
+                'config_keys' => 0,
+                'inserted' => 0,
+                'updated' => 0,
+                'skipped' => 0,
+                'invalid' => 0,
+        ];
+
+        if ($migrateconfig) {
+            $configs = get_config(self::LEGACY_ZOOM_PLUGIN);
+            if ($configs) {
+                $configs = (array) $configs;
+                foreach ($configs as $key => $value) {
+                    $stats['config_keys']++;
+                    if (!$dryrun) {
+                        set_config($key, $value, 'local_stream');
+                    }
+                    $log('Config: ' . $key);
+                }
+            } else {
+                $log('No legacy plugin config (' . self::LEGACY_ZOOM_PLUGIN . ').');
+            }
+        }
+
+        if (!$migraterecords) {
+            return $stats;
+        }
+
+        if (!$this->legacy_zoom_rec_table_exists()) {
+            $log('Legacy table {' . self::LEGACY_ZOOM_REC_TABLE . '} does not exist.');
+            return $stats;
+        }
+
+        $legacyrows = $DB->get_records(self::LEGACY_ZOOM_REC_TABLE, [], 'id ASC');
+        if ($limit !== null && $limit > 0) {
+            $legacyrows = array_slice($legacyrows, 0, $limit, true);
+        }
+
+        $log('Legacy rows to process: ' . count($legacyrows));
+
+        foreach ($legacyrows as $legacy) {
+            $prepared = $this->migrate_legacy_zoom_prepare_record($legacy);
+            if ($prepared === null) {
+                $stats['invalid']++;
+                $log('Skip legacy id ' . $legacy->id . ': empty recordingid.');
+                continue;
+            }
+
+            $existing = $DB->get_record('local_stream_rec', ['recordingid' => $prepared->recordingid]);
+            if ($existing) {
+                if (!$updateexisting) {
+                    $stats['skipped']++;
+                    $log('Skip (exists): recordingid ' . $prepared->recordingid);
+                    continue;
+                }
+                $prepared->id = $existing->id;
+                if (property_exists($existing, 'embedded_at')) {
+                    $prepared->embedded_at = $existing->embedded_at;
+                }
+                if (property_exists($existing, 'zoom_cloud_deleted')) {
+                    $prepared->zoom_cloud_deleted = $existing->zoom_cloud_deleted;
+                }
+                if ($dryrun) {
+                    $stats['updated']++;
+                    $log('[dry-run] Would update local_stream_rec id ' . $existing->id . ' <= legacy id ' . $legacy->id);
+                    continue;
+                }
+                $DB->update_record('local_stream_rec', $prepared);
+                $stats['updated']++;
+                $log('Updated local_stream_rec id ' . $existing->id . ' <= legacy id ' . $legacy->id);
+                continue;
+            }
+
+            if ($dryrun) {
+                $stats['inserted']++;
+                $log('[dry-run] Would insert recordingid ' . $prepared->recordingid . ' (legacy id ' . $legacy->id . ')');
+                continue;
+            }
+
+            $DB->insert_record('local_stream_rec', $prepared);
+            $stats['inserted']++;
+            $log('Inserted recordingid ' . $prepared->recordingid . ' (legacy id ' . $legacy->id . ')');
+        }
+
+        return $stats;
+    }
 }

@@ -26,28 +26,12 @@
  * Perform the post-install procedures.
  */
 function xmldb_local_stream_install() {
-    global $DB;
+    global $CFG;
 
-    $dbman = $DB->get_manager();
+    require_once($CFG->dirroot . '/local/stream/locallib.php');
 
-    $table = new xmldb_table('local_zoom_integration_rec');
-    if ($dbman->table_exists($table)) {
-
-        $configs = get_config('local_zoom_integration');
-        $configs = (array) $configs;
-        foreach ($configs as $key => $value) {
-            set_config($key, $value, 'local_stream');
-        }
-
-        $meetings = $DB->get_records('local_zoom_integration_rec', []);
-        foreach ($meetings as $meeting) {
-
-            if ($DB->get_record('local_stream_rec', ['recordingid' => $meeting->recordingid])) {
-                continue;
-            }
-
-            unset($meeting->id);
-            $DB->insert_record('local_stream_rec', $meeting);
-        }
+    $help = new local_stream_help();
+    if ($help->legacy_zoom_rec_table_exists()) {
+        $help->migrate_legacy_zoom_integration();
     }
 }
