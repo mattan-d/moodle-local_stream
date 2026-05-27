@@ -14,21 +14,30 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-/**
- * Version
- *
- * @package    local_stream
- * @copyright  2023 mattandor <mattan@centricapp.co.il>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
+namespace local_stream\form;
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'local_stream';
-$plugin->version = 2026051707;
-$plugin->requires = 2014051200;
-$plugin->maturity = MATURITY_STABLE;
-$plugin->release = 'v4.5';
-$plugin->dependencies = [
-        'mod_stream' => 2024060700,
-];
+require_once($GLOBALS['CFG']->libdir . '/formslib.php');
+
+/**
+ * Date range filter for the question-generation usage report.
+ *
+ * @package    local_stream
+ * @copyright  2026 mattandor <mattan@centricapp.co.il>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+class question_gen_report_filter_form extends \moodleform {
+
+    /**
+     * @return void
+     */
+    public function definition() {
+        $mform = $this->_form;
+
+        $mform->addElement('date_selector', 'datefrom', get_string('qgenreportdatefrom', 'local_stream'));
+        $mform->addElement('date_selector', 'dateto', get_string('qgenreportdateto', 'local_stream'));
+
+        $this->add_action_buttons(false, get_string('qgenreportfilter', 'local_stream'));
+    }
+}

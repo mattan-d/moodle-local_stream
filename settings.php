@@ -246,6 +246,10 @@ if ($hassiteconfig) {
 
     $ADMIN->add('localstreamfolder', $settings);
 
+    $ADMIN->add('localstreamfolder', new admin_externalpage('local_stream_question_gen_report',
+            get_string('qgenreporttitle', 'local_stream'),
+            new moodle_url('/local/stream/question_gen_report.php')));
+
     $ADMIN->add('localstreamfolder', new admin_externalpage('local_stream_zoom_stats',
             get_string('zoom_account_stats', 'local_stream'), new moodle_url('/local/stream/zoom_stats.php')));
 

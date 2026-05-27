@@ -21,6 +21,7 @@ require_once(__DIR__ . '/classes/form/question_from_video_form.php');
 
 use local_stream\form\question_from_video_form;
 use local_stream\question_bank_import;
+use local_stream\question_gen_logger;
 
 $courseid = required_param('course', PARAM_INT);
 $cmid = optional_param('cmid', 0, PARAM_INT);
@@ -189,6 +190,16 @@ if ($fromform = $mform->get_data()) {
                 $generation_result['error'] = true;
                 $generation_result['message'] = local_stream_question_from_video_map_import_error($import['error']);
             } else if (!empty($import['category']) && !empty($import['questionids'])) {
+                question_gen_logger::log_success(
+                        $courseid,
+                        $cmid,
+                        (int) $USER->id,
+                        $postvideoid,
+                        $videotitle,
+                        $formqtype,
+                        count($import['questionids']),
+                        (int) $import['category']->id
+                );
                 $redir = local_stream_question_bank_edit_url(
                         $courseid,
                         $cmid,
