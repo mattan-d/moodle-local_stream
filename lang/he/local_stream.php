@@ -166,6 +166,7 @@ $string['zoom_auto_license_teachers_first_login_desc'] = 'רק Zoom: כאשר מ
 $string['zoom_auto_license_roles'] = 'תפקידים לזכאות לרישוי אוטומטי';
 $string['zoom_auto_license_roles_desc'] = 'בחר אילו תפקידי Moodle יקבלו רישוי Zoom אוטומטית בכניסה ראשונה (כאשר מופעל).';
 $string['aicreatequestionsmenu'] = 'יצירת שאלות מתוך הקלטות השיעור';
+$string['addquestionfromrecording'] = 'הוספת שאלה ממפגש מוקלט';
 $string['questionfromvideopickvideo'] = 'בחרו הקלטת שיעור עם כתוביות (מוצגות רק כאלה). עשר הקלטות בעמוד.';
 $string['questionfromvideosearchheading'] = 'חיפוש הקלטות';
 $string['questionfromvideosearchlabel'] = 'חיפוש';

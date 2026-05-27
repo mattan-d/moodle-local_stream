@@ -165,6 +165,7 @@ $string['zoom_auto_license_teachers_first_login_desc'] = 'Zoom only: when a user
 $string['zoom_auto_license_roles'] = 'Roles eligible for auto-licensing';
 $string['zoom_auto_license_roles_desc'] = 'Select which Moodle roles should receive a Zoom license automatically on first login (when enabled).';
 $string['aicreatequestionsmenu'] = 'Create questions from lesson recordings';
+$string['addquestionfromrecording'] = 'Add question from recording';
 $string['questionfromvideopickvideo'] = 'Choose a lesson recording that has captions (only those are listed). Ten videos per page.';
 $string['questionfromvideosearchheading'] = 'Find a recording';
 $string['questionfromvideosearchlabel'] = 'Search';

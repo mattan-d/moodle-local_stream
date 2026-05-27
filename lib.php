@@ -293,26 +293,20 @@ function local_stream_extend_navigation_course($navigation, $course, $context) {
 }
 
 /**
- * Adds a link under the quiz activity settings (gear) to the “questions from recordings” page.
+ * URL for creating quiz questions from Stream recordings, or null if unavailable.
  *
- * @param settings_navigation $navigation
- * @param context $context
+ * @return moodle_url|null
  */
-function local_stream_extend_settings_navigation(settings_navigation $navigation, context $context): void {
+function local_stream_quiz_question_from_video_url(): ?moodle_url {
     global $PAGE;
 
     if ($PAGE->activityname !== 'quiz' || !$PAGE->cm) {
-        return;
+        return null;
     }
 
     $coursecontext = context_course::instance($PAGE->course->id);
     if (!has_capability('moodle/question:add', $coursecontext)) {
-        return;
-    }
-
-    $node = $navigation->find('modulesettings', navigation_node::TYPE_SETTING);
-    if (!$node) {
-        return;
+        return null;
     }
 
     $params = [
@@ -322,7 +316,26 @@ function local_stream_extend_settings_navigation(settings_navigation $navigation
     if ((string) $PAGE->url->out_as_local_url(false) !== '') {
         $params['returnurl'] = $PAGE->url->out_as_local_url(false);
     }
-    $url = new moodle_url('/local/stream/question_from_video.php', $params);
+
+    return new moodle_url('/local/stream/question_from_video.php', $params);
+}
+
+/**
+ * Adds a link under the quiz activity settings (gear) to the “questions from recordings” page.
+ *
+ * @param settings_navigation $navigation
+ * @param context $context
+ */
+function local_stream_extend_settings_navigation(settings_navigation $navigation, context $context): void {
+    $url = local_stream_quiz_question_from_video_url();
+    if ($url === null) {
+        return;
+    }
+
+    $node = $navigation->find('modulesettings', navigation_node::TYPE_SETTING);
+    if (!$node) {
+        return;
+    }
 
     $node->add(
             get_string('aicreatequestionsmenu', 'local_stream'),
@@ -332,4 +345,29 @@ function local_stream_extend_settings_navigation(settings_navigation $navigation
             'local_stream_ai_questions',
             new pix_icon('icon', get_string('aicreatequestionsmenu', 'local_stream'), 'local_stream')
     );
+}
+
+/**
+ * On quiz view / edit pages, inject a button beside core “Add question”.
+ */
+function local_stream_before_footer(): string {
+    global $PAGE;
+
+    $allowedpagetypes = ['mod-quiz-view', 'mod-quiz-edit'];
+    if (!in_array($PAGE->pagetype, $allowedpagetypes, true)) {
+        return '';
+    }
+
+    $url = local_stream_quiz_question_from_video_url();
+    if ($url === null) {
+        return '';
+    }
+
+    // js_call_amd: each array element is a separate JS argument (not one config object).
+    $PAGE->requires->js_call_amd('local_stream/quiz_view_button', 'init', [
+            $url->out(false),
+            get_string('addquestionfromrecording', 'local_stream'),
+    ]);
+
+    return '';
 }
