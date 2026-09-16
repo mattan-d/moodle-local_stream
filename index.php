@@ -196,7 +196,7 @@ foreach ($data as $row) {
             'preview' => new pix_icon('t/preview', get_string('preview'), 'moodle', ['class' => 'mr-2']),
             'hide' => new pix_icon('t/hide', get_string('hide'), 'moodle', ['class' => 'mr-2']),
             'show' => new pix_icon('t/show', get_string('show'), 'moodle', ['class' => 'mr-2']),
-            'course' => new pix_icon('i/course', get_string('course'), 'moodle', ['class' => 'mr-2']),
+            'course' => new pix_icon('i/course', get_string('embedincourse', 'local_stream'), 'moodle', ['class' => 'mr-2']),
             'delete' => new pix_icon('t/delete', get_string('delete'), 'moodle', ['class' => 'mr-2']),
             'restore' => new pix_icon('t/restore', get_string('restore'), 'moodle', ['class' => 'mr-2']),
             'download' => new pix_icon('t/download', get_string('download'), 'moodle', ['class' => 'mr-2']),
@@ -254,14 +254,6 @@ foreach ($data as $row) {
                 $icon,
                 new confirm_action(get_string('areyousure', 'local_stream')),
                 ['class' => $menuitemclass], true);
-
-        if (isset($row['meetingdata'])) {
-            $icon = $icons['restore'];
-            $buttons .= $OUTPUT->action_icon(new moodle_url('/local/stream/index.php',
-                    ['action' => 'recover', 'id' => $row['id']]), $icon,
-                    new confirm_action(get_string('areyousure', 'local_stream')),
-                    ['class' => $menuitemclass], true);
-        }
 
         $icon = $icons['download'];
         $buttons .= $OUTPUT->action_icon(new moodle_url('/local/stream/index.php',

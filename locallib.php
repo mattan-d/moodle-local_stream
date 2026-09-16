@@ -1262,28 +1262,172 @@ class local_stream_help {
     }
 
     /**
-     * Download a Zoom meeting recording.
+     * Download a recording: Stream API when streamid exists, otherwise legacy play URL.
      *
-     * This method retrieves the download URL for a Zoom meeting recording and redirects the user to download it.
-     *
-     * @param int $id The ID of the Zoom meeting recording.
-     * @return void This method redirects the user to download the recording or to the dashboard in case of an error.
+     * @param int $id The local_stream_rec ID.
+     * @return bool False on failure. On Stream success this method exits after streaming the file.
      */
     public function download_recording($id) {
         global $DB;
 
         $recording = $DB->get_record('local_stream_rec', ['id' => $id]);
-        if ($recording) {
-            $urlparams = [];
-            $urlparams['forcedownload'] = 1;
-            $downloadurl = $this->get_meeting($recording);
-
-            if ($downloadurl) {
-                redirect(new moodle_url($downloadurl, $urlparams));
-            } else {
-                return false;
-            }
+        if (!$recording) {
+            return false;
         }
+
+        if (!empty($recording->streamid)) {
+            return $this->stream_download_video_file(
+                    (int) $recording->streamid,
+                    (string) ($recording->topic ?? '')
+            );
+        }
+
+        $downloadurl = $this->get_meeting($recording);
+        if ($downloadurl) {
+            redirect(new moodle_url($downloadurl, ['forcedownload' => 1]));
+        }
+
+        return false;
+    }
+
+    /**
+     * Proxy-download a Stream video via webservice/api/video-download (Bearer apikey).
+     *
+     * Streams the binary response to the browser so the API key never leaves the server.
+     *
+     * @param int $videoid Stream video id
+     * @param string $fallbackname Optional filename stem (recording topic)
+     * @return bool False on failure (caller shows error). Does not return on success.
+     */
+    public function stream_download_video_file(int $videoid, string $fallbackname = ''): bool {
+        $streamurl = rtrim((string) ($this->config->streamurl ?? ''), '/');
+        $streamkey = (string) ($this->config->streamkey ?? '');
+        if ($streamurl === '' || $streamkey === '' || $videoid < 1) {
+            return false;
+        }
+
+        $endpoint = $streamurl . '/webservice/api/video-download?videoid=' . $videoid;
+
+        $contenttype = 'application/octet-stream';
+        $contentdisposition = '';
+        $contentlength = null;
+        $httpcode = 0;
+        $headerssent = false;
+        $errorbody = '';
+
+        // Match Moodle \curl defaults (local/dev certs often fail OpenSSL verify).
+        $ch = curl_init($endpoint);
+        curl_setopt_array($ch, [
+                CURLOPT_HTTPHEADER => [
+                        'Authorization: Bearer ' . $streamkey,
+                        'Accept: */*',
+                ],
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_RETURNTRANSFER => false,
+                CURLOPT_HEADER => false,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_CONNECTTIMEOUT => 30,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_HEADERFUNCTION => function ($curl, $header) use (
+                        &$contenttype,
+                        &$contentdisposition,
+                        &$contentlength
+                ) {
+                    $len = strlen($header);
+                    $trimmed = trim($header);
+                    if ($trimmed === '') {
+                        return $len;
+                    }
+                    if (stripos($trimmed, 'Content-Type:') === 0) {
+                        $contenttype = trim(substr($trimmed, strlen('Content-Type:')));
+                    } else if (stripos($trimmed, 'Content-Disposition:') === 0) {
+                        $contentdisposition = trim(substr($trimmed, strlen('Content-Disposition:')));
+                    } else if (stripos($trimmed, 'Content-Length:') === 0) {
+                        $contentlength = (int) trim(substr($trimmed, strlen('Content-Length:')));
+                    }
+                    return $len;
+                },
+                CURLOPT_WRITEFUNCTION => function ($curl, $data) use (
+                        &$httpcode,
+                        &$headerssent,
+                        &$errorbody,
+                        &$contenttype,
+                        &$contentdisposition,
+                        &$contentlength,
+                        $videoid,
+                        $fallbackname
+                ) {
+                    if (!$headerssent) {
+                        $httpcode = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+                        $isjson = (stripos($contenttype, 'application/json') !== false);
+                        $lookslikejson = ($data !== '' && ($data[0] === '{' || $data[0] === '['));
+
+                        if ($httpcode !== 200 || $isjson || $lookslikejson) {
+                            $errorbody .= $data;
+                            return strlen($data);
+                        }
+
+                        while (ob_get_level()) {
+                            ob_end_clean();
+                        }
+
+                        header('Content-Type: ' . $contenttype);
+                        if ($contentdisposition !== '') {
+                            header('Content-Disposition: ' . $contentdisposition);
+                        } else {
+                            $name = $fallbackname !== '' ? $fallbackname : ('video-' . $videoid);
+                            $name = clean_filename($name);
+                            if (!preg_match('/\.(mp4|webm|mov|mkv)$/i', $name)) {
+                                $name .= '.mp4';
+                            }
+                            header('Content-Disposition: attachment; filename="' . $name . '"');
+                        }
+                        if (!empty($contentlength)) {
+                            header('Content-Length: ' . $contentlength);
+                        }
+                        header('Cache-Control: private, no-transform, no-store, must-revalidate');
+                        header('Pragma: no-cache');
+                        $headerssent = true;
+                    }
+
+                    if ($errorbody !== '') {
+                        $errorbody .= $data;
+                        return strlen($data);
+                    }
+
+                    echo $data;
+                    return strlen($data);
+                },
+        ]);
+
+        $ok = curl_exec($ch);
+        if (!$httpcode) {
+            $httpcode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        }
+        $errno = curl_errno($ch);
+        $curlerror = curl_error($ch);
+        curl_close($ch);
+
+        if ($headerssent) {
+            // Binary already started; finish the response.
+            exit;
+        }
+
+        if ($errno || $ok === false || $httpcode !== 200 || $errorbody !== '') {
+            debugging(
+                    'local_stream video-download failed: videoid=' . $videoid .
+                    ' http=' . $httpcode .
+                    ' errno=' . $errno .
+                    ' error=' . $curlerror .
+                    ' body=' . substr($errorbody, 0, 500),
+                    DEBUG_DEVELOPER
+            );
+            return false;
+        }
+
+        // Empty successful body is still a failure for a video download.
+        return false;
     }
 
     /**
@@ -1785,10 +1929,7 @@ class local_stream_help {
                 redirect($baseurl, get_string('error', 'local_stream'));
             }
         } else if ($action == 'download' && $id) {
-            $meeting = $DB->get_record('local_stream_rec', ['id' => $id], 'id,streamid');
-            if (!empty($meeting->streamid)) {
-                $this->stream_login('videos/edit/' . $meeting->streamid);
-            }
+            // Stream videos: proxy webservice/api/video-download (Bearer key stays server-side).
             if (!$this->download_recording($id)) {
                 redirect($baseurl, get_string('errordownload', 'local_stream', $id));
             }

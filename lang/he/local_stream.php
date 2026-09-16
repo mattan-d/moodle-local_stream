@@ -47,6 +47,7 @@ $string['downloadrecordings'] = 'הורדת הקלטות';
 $string['duration'] = 'אורך';
 $string['email'] = 'דוא״ל';
 $string['embeddedrecordings'] = 'שיבוץ הקלטות';
+$string['embedincourse'] = 'הטמעה בקורס';
 $string['embeddingsettings'] = 'שיבוץ';
 $string['endtime'] = 'שעת סיום';
 $string['error'] = 'אירעה שגיאה במערכת, אנא דווח על כך למנהל.';

@@ -47,6 +47,7 @@ $string['downloadrecordings'] = 'Upload recordings';
 $string['duration'] = 'Duration';
 $string['email'] = 'Email';
 $string['embeddedrecordings'] = 'Embedded recordings';
+$string['embedincourse'] = 'Embed in course';
 $string['embeddingsettings'] = 'Embedding';
 $string['endtime'] = 'End time';
 $string['error'] = 'An error occurred in the system, please report it to the administrator.';
