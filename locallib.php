@@ -2745,7 +2745,7 @@ class local_stream_help {
      */
     public function upload_stream($data) {
 
-        $url = $this->config->streamurl . '/webservice/api/v1';
+        $url = rtrim((string) ($this->config->streamurl ?? ''), '/') . '/webservice/api/v1';
 
         $headers = [
                 'Authorization: Bearer ' . $this->config->streamkey,
@@ -2762,14 +2762,56 @@ class local_stream_help {
         $curl = new \curl();
         $jsonresult = $curl->post($url, $data, $options);
 
-        $response = json_decode($jsonresult);
+        $info = $curl->get_info();
+        $httpcode = (int) ($info['http_code'] ?? 0);
+        $curlerror = trim((string) ($curl->error ?? ''));
+        $raw = is_string($jsonresult) ? $jsonresult : '';
+        $response = json_decode($raw);
+
         if (isset($response->streamid)) {
             mtrace('Task: Stream ID: ' . $response->streamid);
             return $response->streamid;
-        } else {
-            mtrace('Task: error can\'t upload video to stream [' . json_encode($response) . ']');
-            return false;
         }
+
+        $apimessage = '';
+        if (is_object($response)) {
+            if (!empty($response->message)) {
+                $apimessage = (string) $response->message;
+            } else if (!empty($response->error) && is_string($response->error)) {
+                $apimessage = $response->error;
+            } else if (!empty($response->exception)) {
+                $apimessage = (string) $response->exception;
+                if (!empty($response->errorcode)) {
+                    $apimessage .= ' (' . $response->errorcode . ')';
+                }
+            }
+        }
+
+        $rawpreview = preg_replace('/\s+/', ' ', $raw);
+        $rawpreview = core_text::substr((string) $rawpreview, 0, 500);
+        if ($rawpreview === '') {
+            $rawpreview = '(empty body)';
+        }
+
+        $context = [];
+        if (!empty($data['topic'])) {
+            $context[] = 'topic=' . $data['topic'];
+        }
+        if (!empty($data['email'])) {
+            $context[] = 'email=' . $data['email'];
+        }
+        if (!empty($data['downloadurl'])) {
+            $context[] = 'downloadurl=' . core_text::substr((string) $data['downloadurl'], 0, 120);
+        }
+
+        mtrace('Task: error can\'t upload video to stream'
+                . ' http=' . $httpcode
+                . ($curlerror !== '' ? ' curl_error=' . $curlerror : '')
+                . ($apimessage !== '' ? ' api_message=' . $apimessage : '')
+                . ($context ? ' [' . implode(', ', $context) . ']' : '')
+                . ' body=' . $rawpreview);
+
+        return false;
     }
 
     /**
