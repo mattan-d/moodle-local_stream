@@ -2801,10 +2801,18 @@ class local_stream_help {
             $context[] = 'email=' . $data['email'];
         }
         if (!empty($data['downloadurl'])) {
-            $context[] = 'downloadurl=' . core_text::substr((string) $data['downloadurl'], 0, 120);
+            $context[] = 'downloadurl=' . $data['downloadurl'];
+        }
+
+        // Moodle curlsecurityblockedhosts blocks the HTTP request URL (Stream API endpoint).
+        $blockednote = '';
+        if (stripos($curlerror, 'blocked') !== false || stripos($rawpreview, 'blocked') !== false) {
+            $blockednote = ' blocked_url=' . $url;
         }
 
         mtrace('Task: error can\'t upload video to stream'
+                . $blockednote
+                . ' request_url=' . $url
                 . ' http=' . $httpcode
                 . ($curlerror !== '' ? ' curl_error=' . $curlerror : '')
                 . ($apimessage !== '' ? ' api_message=' . $apimessage : '')
