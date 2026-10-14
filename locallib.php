@@ -169,6 +169,43 @@ class local_stream_help {
     }
 
     /**
+     * Format meeting details for sync/listing logs (topic, email, duration).
+     *
+     * @param object|null $meeting Zoom/Webex/etc meeting object
+     * @return string
+     */
+    public function format_meeting_log_details($meeting): string {
+        if (!is_object($meeting)) {
+            return '';
+        }
+
+        $parts = [];
+        $topic = trim((string) ($meeting->topic ?? $meeting->title ?? ''));
+        if ($topic !== '') {
+            $parts[] = 'topic="' . $topic . '"';
+        }
+
+        $email = trim((string) ($meeting->email ?? $meeting->hostEmail ?? ''));
+        if ($email !== '') {
+            $parts[] = 'email=' . strtolower($email);
+        }
+
+        if (isset($meeting->durationSeconds) && is_numeric($meeting->durationSeconds)) {
+            // Webex: duration in seconds.
+            $parts[] = 'duration=' . $this->seconds_to_hms((int) $meeting->durationSeconds);
+        } else if (isset($meeting->duration) && $meeting->duration !== '') {
+            if (is_numeric($meeting->duration)) {
+                // Zoom: duration is minutes.
+                $parts[] = 'duration=' . $this->seconds_to_hms((int) $meeting->duration * 60);
+            } else {
+                $parts[] = 'duration=' . $meeting->duration;
+            }
+        }
+
+        return $parts ? ' [' . implode(', ', $parts) . ']' : '';
+    }
+
+    /**
      * Reset an existing local_stream_rec row to initial queue status (like a new recording).
      *
      * @param stdClass $existing DB record (must have id)
@@ -909,7 +946,8 @@ class local_stream_help {
         $i = 0;
         foreach ($meetings as $meeting) {
 
-            mtrace('Task: Checking meeting ' . $i . ' out of ' . $totalcount . ' #' . $meeting->id);
+            $meetingdetails = $this->format_meeting_log_details($meeting);
+            mtrace('Task: Checking meeting ' . $i . ' out of ' . $totalcount . ' #' . $meeting->id . $meetingdetails);
             $i++;
 
             if (!$meeting->has_recording) {
@@ -937,7 +975,7 @@ class local_stream_help {
                         ]);
                     } else {
                         mtrace('Task: Skipping recording #' . $recording->id
-                                . ' was previously saved and exists in the db.');
+                                . ' was previously saved and exists in the db.' . $meetingdetails);
                     }
                     continue;
                 }
@@ -948,7 +986,7 @@ class local_stream_help {
                             ['meetingid' => $meeting->id, 'uuid' => $meeting->uuid])) {
 
                         mtrace('Task: Skipping closed caption recording #' . $recording->id .
-                                ' was previously saved and exists in the db.');
+                                ' was previously saved and exists in the db.' . $meetingdetails);
                         continue;
                     } else {
                         $newcc = new stdClass();
@@ -958,7 +996,7 @@ class local_stream_help {
                         $newcc->timecreated = time();
                         $DB->insert_record('local_stream_cc', $newcc);
 
-                        mtrace('Task: A new closed caption (CC) was found and saved in the database.');
+                        mtrace('Task: A new closed caption (CC) was found and saved in the database.' . $meetingdetails);
                     }
                 }
 
@@ -966,7 +1004,7 @@ class local_stream_help {
                     continue;
                 }
 
-                mtrace('Task: A new recording was found and saved in the database.');
+                mtrace('Task: A new recording was found and saved in the database.' . $meetingdetails);
 
                 $newrecording = new stdClass();
                 $newrecording->topic = $meeting->topic;
@@ -1017,7 +1055,8 @@ class local_stream_help {
         $i = 0;
         foreach ($meetings->items as $meeting) {
 
-            mtrace('Task: Checking meeting ' . $i . ' out of ' . $totalcount . ' #' . $meeting->id);
+            $meetingdetails = $this->format_meeting_log_details($meeting);
+            mtrace('Task: Checking meeting ' . $i . ' out of ' . $totalcount . ' #' . $meeting->id . $meetingdetails);
             $i++;
 
             $recording = $this->call_webex_api('recordings/' . $meeting->id . '?hostEmail=' . $meeting->hostEmail, null, 'get');
@@ -1042,7 +1081,7 @@ class local_stream_help {
                     ]);
                 } else {
                     mtrace('Task: Skipping recording #' . $meeting->id
-                            . ' was previously saved and exists in the db.');
+                            . ' was previously saved and exists in the db.' . $meetingdetails);
                 }
                 continue;
             }
@@ -1051,7 +1090,7 @@ class local_stream_help {
                 continue;
             }
 
-            mtrace('Task: A new recording was found and saved in the database.');
+            mtrace('Task: A new recording was found and saved in the database.' . $meetingdetails);
 
             $newrecording = new stdClass();
             $newrecording->topic = $meeting->topic;
