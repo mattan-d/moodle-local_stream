@@ -102,11 +102,10 @@ $string['settingspage'] = 'הגדרות Stream';
 $string['starttime'] = 'שעת התחלה';
 $string['status'] = 'סטטוס';
 $string['storage'] = 'סנכרון הקלטות';
-$string['uploadonlywithcourse'] = 'העלאה ל-Stream רק להקלטות עם קורס משויך';
+$string['uploadonlywithcourse'] = 'להעלות ל-Stream רק הקלטות שמיועדות לקורס';
 $string['uploadonlywithcourse_desc'] =
-        'כאשר אחסון מוגדר ל-Stream: יועלו רק הקלטות שמשויכות לקורס ב-Moodle '
-        . '(למשל פעילות Zoom בקורס, או קורס שהוגדר על ההקלטה). '
-        . 'שאר ההקלטות מה-listing יישארו בתור ולא יועלו ל-Stream עד שישויך קורס.';
+        'אם מסומן: יועלו ל-Stream רק הקלטות שכבר מקושרות לקורס באתר (למשל פגישת Zoom מתוך קורס). '
+        . 'הקלטות בלי קורס לא יועלו — כך נחסך מקום ומועלות רק הקלטות שאפשר גם לשבץ בקורס.';
 $string['stream:edit'] = 'עריכת נתוני הקלטה';
 $string['stream:manage'] = 'ניהול וצפיה בהקלטות';
 $string['stream:view'] = 'צפיה בהקלטות זום';
