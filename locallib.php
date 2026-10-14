@@ -2767,31 +2767,20 @@ class local_stream_help {
         $curlerror = trim((string) ($curl->error ?? ''));
         $raw = is_string($jsonresult) ? $jsonresult : '';
         $response = json_decode($raw);
+        $responsearr = json_decode($raw, true);
 
-        if (isset($response->streamid)) {
+        // Success: object with streamid, or bare numeric id.
+        if (is_object($response) && isset($response->streamid) && $response->streamid) {
             mtrace('Task: Stream ID: ' . $response->streamid);
             return $response->streamid;
         }
-
-        $apimessage = '';
-        if (is_object($response)) {
-            if (!empty($response->message)) {
-                $apimessage = (string) $response->message;
-            } else if (!empty($response->error) && is_string($response->error)) {
-                $apimessage = $response->error;
-            } else if (!empty($response->exception)) {
-                $apimessage = (string) $response->exception;
-                if (!empty($response->errorcode)) {
-                    $apimessage .= ' (' . $response->errorcode . ')';
-                }
-            }
+        if (is_numeric($raw) && (int) $raw > 0) {
+            mtrace('Task: Stream ID: ' . (int) $raw);
+            return (int) $raw;
         }
 
-        $rawpreview = preg_replace('/\s+/', ' ', $raw);
-        $rawpreview = core_text::substr((string) $rawpreview, 0, 500);
-        if ($rawpreview === '') {
-            $rawpreview = '(empty body)';
-        }
+        // Prefer the API's own error/message fields exactly when present.
+        $apierror = $this->stream_extract_api_error_message($response, $responsearr, $raw);
 
         $context = [];
         if (!empty($data['topic'])) {
@@ -2804,25 +2793,77 @@ class local_stream_help {
             $context[] = 'downloadurl=' . $data['downloadurl'];
         }
 
-        // Moodle curlsecurityblockedhosts blocks the HTTP request URL (Stream API endpoint).
         $requestdomain = (string) (parse_url($url, PHP_URL_HOST) ?? '');
         $blockednote = '';
-        if (stripos($curlerror, 'blocked') !== false || stripos($rawpreview, 'blocked') !== false) {
+        if (stripos($curlerror, 'blocked') !== false || stripos($raw, 'blocked') !== false) {
             $blockednote = ' blocked_url=' . $url
                     . ($requestdomain !== '' ? ' blocked_domain=' . $requestdomain : '');
         }
 
+        // Exact server payload (no rewrite) — this is what Stream returned.
         mtrace('Task: error can\'t upload video to stream'
                 . $blockednote
                 . ' request_url=' . $url
                 . ($requestdomain !== '' ? ' domain=' . $requestdomain : '')
                 . ' http=' . $httpcode
                 . ($curlerror !== '' ? ' curl_error=' . $curlerror : '')
-                . ($apimessage !== '' ? ' api_message=' . $apimessage : '')
-                . ($context ? ' [' . implode(', ', $context) . ']' : '')
-                . ' body=' . $rawpreview);
+                . ($context ? ' [' . implode(', ', $context) . ']' : ''));
+        mtrace('Task: stream API error: ' . $apierror);
 
         return false;
+    }
+
+    /**
+     * Build the exact Stream API error text from a decoded response / raw body.
+     *
+     * @param mixed $response json_decode object/array/null
+     * @param mixed $responsearr json_decode(..., true)
+     * @param string $raw Raw HTTP body from Stream
+     * @return string
+     */
+    private function stream_extract_api_error_message($response, $responsearr, string $raw): string {
+        $raw = (string) $raw;
+
+        $candidates = [];
+        if (is_object($response)) {
+            $candidates[] = $response;
+        }
+        if (is_array($responsearr)) {
+            // e.g. {"error":true,"message":"..."} or nested first element.
+            $candidates[] = (object) $responsearr;
+            if (isset($responsearr[0]) && (is_array($responsearr[0]) || is_object($responsearr[0]))) {
+                $candidates[] = (object) $responsearr[0];
+            }
+        }
+
+        foreach ($candidates as $obj) {
+            if (!is_object($obj)) {
+                continue;
+            }
+            foreach (['message', 'error', 'error_message', 'errmsg', 'exception', 'detail', 'details'] as $key) {
+                if (!isset($obj->$key)) {
+                    continue;
+                }
+                $val = $obj->$key;
+                if (is_bool($val)) {
+                    continue;
+                }
+                if (is_scalar($val) && trim((string) $val) !== '') {
+                    $msg = trim((string) $val);
+                    if (!empty($obj->errorcode)) {
+                        $msg .= ' (errorcode=' . $obj->errorcode . ')';
+                    }
+                    return $msg;
+                }
+            }
+        }
+
+        // No structured message — return the exact raw body from the API.
+        if ($raw === '') {
+            return '(empty response body)';
+        }
+
+        return $raw;
     }
 
     /**
