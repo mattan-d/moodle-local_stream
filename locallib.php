@@ -2805,14 +2805,17 @@ class local_stream_help {
         }
 
         // Moodle curlsecurityblockedhosts blocks the HTTP request URL (Stream API endpoint).
+        $requestdomain = (string) (parse_url($url, PHP_URL_HOST) ?? '');
         $blockednote = '';
         if (stripos($curlerror, 'blocked') !== false || stripos($rawpreview, 'blocked') !== false) {
-            $blockednote = ' blocked_url=' . $url;
+            $blockednote = ' blocked_url=' . $url
+                    . ($requestdomain !== '' ? ' blocked_domain=' . $requestdomain : '');
         }
 
         mtrace('Task: error can\'t upload video to stream'
                 . $blockednote
                 . ' request_url=' . $url
+                . ($requestdomain !== '' ? ' domain=' . $requestdomain : '')
                 . ' http=' . $httpcode
                 . ($curlerror !== '' ? ' curl_error=' . $curlerror : '')
                 . ($apimessage !== '' ? ' api_message=' . $apimessage : '')
