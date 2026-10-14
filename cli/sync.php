@@ -25,7 +25,7 @@
 define('CLI_SCRIPT', true);
 
 require(__DIR__ . '/../../../config.php');
-require_once($CFG->libdir . '/clilib.php');
+require_once($CFG->libdir.'/clilib.php');
 require_once($CFG->dirroot . '/local/stream/locallib.php');
 
 // Get CLI options.
@@ -33,11 +33,13 @@ list($options, $unrecognized) = cli_get_params(
         [
                 'days' => null,
                 'date' => null,
+                'reset-status' => false,
                 'help' => false,
         ],
         [
                 'd' => 'days',
                 'f' => 'date',
+                'r' => 'reset-status',
                 'h' => 'help',
         ]
 );
@@ -54,15 +56,22 @@ if ($options['help']) {
 Options:
 -d, --days=NUMBER       Number of days to sync backwards (default: from plugin config)
 -f, --date=DATE         Specific date to sync (format: YYYY-MM-DD)
+-r, --reset-status      Re-queue existing DB recordings to initial status (like new)
 -h, --help              Print out this help
 
 Note: If both --days and --date are specified, --date takes precedence.
+
+With --reset-status, recordings that already exist are not skipped: their status
+is set back to the initial queue status (0), tries=0, and meeting/recording
+metadata is refreshed from the platform (fresh download URLs).
 
 Examples:
 \$ php cli/sync.php --days=7
 \$ php cli/sync.php -d 30
 \$ php cli/sync.php --date=2024-01-15
 \$ php cli/sync.php -f 2024-01-15
+\$ php cli/sync.php --days=3 --reset-status
+\$ php cli/sync.php -d 3 -r
 ";
 
     echo $help;
@@ -71,6 +80,7 @@ Examples:
 
 // Initialize helper.
 $help = new local_stream_help();
+$help->resetexistingstatus = !empty($options['reset-status']);
 
 if (isset($options['date']) && $options['date'] !== null) {
     // Validate date format.
@@ -111,6 +121,9 @@ if ($specificdate) {
     cli_writeln("Syncing recordings for date: {$specificdate}");
 } else {
     cli_writeln("Syncing recordings from the last {$days} day(s)");
+}
+if ($help->resetexistingstatus) {
+    cli_writeln("Reset-status enabled: existing recordings will be re-queued to initial status");
 }
 cli_writeln(str_repeat('-', 60));
 
@@ -175,9 +188,9 @@ try {
                     $data->from = date('Y-m-d', strtotime('-' . $days . ' day', time()));
                     $data->to = date('Y-m-d', time());
 
-                    $options = ['past', 'pastOne'];
-                    $randomkey = array_rand($options);
-                    $data->type = $options[$randomkey];
+                    $meetingtypes = ['past', 'pastOne'];
+                    $randomkey = array_rand($meetingtypes);
+                    $data->type = $meetingtypes[$randomkey];
 
                     cli_writeln("Date range: {$data->from} to {$data->to}");
                     cli_writeln("Meeting type: {$data->type}");

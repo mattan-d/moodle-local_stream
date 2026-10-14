@@ -140,12 +140,65 @@ class local_stream_help {
     }
 
     /**
+     * When true (CLI --reset-status), existing recordings found during sync are re-queued
+     * to the same initial status as a newly indexed recording.
+     *
+     * @var bool
+     */
+    public $resetexistingstatus = false;
+
+    /**
      * Constructor function.
      * Initializes the object by setting the 'config' property using the 'local_stream' configuration.
      */
     public function __construct() {
         $this->config = get_config('local_stream');
         $this->cache = cache::make('local_stream', 'streamdata');
+    }
+
+    /**
+     * Initial status used when a recording first enters the system.
+     *
+     * @return int
+     */
+    public function get_initial_recording_status(): int {
+        if ($this->config->storage == $this::STORAGE_NODOWNLOAD) {
+            return $this::MEETING_STATUS_READY;
+        }
+        return $this::MEETING_STATUS_QUEUE;
+    }
+
+    /**
+     * Reset an existing local_stream_rec row to initial queue status (like a new recording).
+     *
+     * @param stdClass $existing DB record (must have id)
+     * @param array $fields Optional extra fields to update (e.g. recordingdata, meetingdata)
+     * @return bool
+     */
+    public function reset_recording_to_initial_status(stdClass $existing, array $fields = []): bool {
+        global $DB;
+
+        if (empty($existing->id)) {
+            return false;
+        }
+
+        $update = new stdClass();
+        $update->id = $existing->id;
+        $update->status = $this->get_initial_recording_status();
+        $update->tries = 0;
+
+        foreach ($fields as $key => $value) {
+            if ($key === 'id') {
+                continue;
+            }
+            $update->$key = $value;
+        }
+
+        $DB->update_record('local_stream_rec', $update);
+        mtrace('Task: Reset recording #' . $existing->id
+                . ' (recordingid=' . ($existing->recordingid ?? '') . ')'
+                . ' to initial status=' . $update->status);
+        return true;
     }
 
     /**
@@ -875,7 +928,17 @@ class local_stream_help {
                 if ($exists = $DB->get_record('local_stream_rec',
                         ['meetingid' => $meeting->id, 'recordingid' => $recording->id])) {
 
-                    mtrace('Task: Skipping recording #' . $recording->id . ' was previously saved and exists in the db.');
+                    if ($this->resetexistingstatus) {
+                        $this->reset_recording_to_initial_status($exists, [
+                                'meetingdata' => json_encode($meeting),
+                                'recordingdata' => json_encode($recording),
+                                'topic' => $meeting->topic,
+                                'email' => strtolower($meeting->email),
+                        ]);
+                    } else {
+                        mtrace('Task: Skipping recording #' . $recording->id
+                                . ' was previously saved and exists in the db.');
+                    }
                     continue;
                 }
 
@@ -970,7 +1033,17 @@ class local_stream_help {
             if ($exists = $DB->get_record('local_stream_rec',
                     ['meetingid' => $meeting->meetingId, 'recordingid' => $meeting->id])) {
 
-                mtrace('Task: Skipping recording #' . $meeting->id . ' was previously saved and exists in the db.');
+                if ($this->resetexistingstatus) {
+                    $this->reset_recording_to_initial_status($exists, [
+                            'meetingdata' => json_encode($meeting),
+                            'recordingdata' => json_encode($recording),
+                            'topic' => $meeting->topic,
+                            'email' => strtolower($meeting->hostEmail),
+                    ]);
+                } else {
+                    mtrace('Task: Skipping recording #' . $meeting->id
+                            . ' was previously saved and exists in the db.');
+                }
                 continue;
             }
 
@@ -1058,13 +1131,22 @@ class local_stream_help {
             if ($exists = $DB->get_record('local_stream_rec',
                     ['meetingid' => $meeting->meeting, 'recordingid' => $meeting->id])) {
 
-                $exists->starttime = $meeting->start_time;
-                $exists->endtime = $meeting->end_time;
-                $exists->meetingdata = json_encode($meeting);
-                $exists->recordingdata = json_encode($meeting);
+                if ($this->resetexistingstatus) {
+                    $this->reset_recording_to_initial_status($exists, [
+                            'starttime' => $meeting->start_time,
+                            'endtime' => $meeting->end_time,
+                            'meetingdata' => json_encode($meeting),
+                            'recordingdata' => json_encode($meeting),
+                    ]);
+                } else {
+                    $exists->starttime = $meeting->start_time;
+                    $exists->endtime = $meeting->end_time;
+                    $exists->meetingdata = json_encode($meeting);
+                    $exists->recordingdata = json_encode($meeting);
 
-                $DB->update_record('local_stream_rec', $exists);
-                mtrace('Task: Updating recording #' . $meeting->id . ' details in the db.');
+                    $DB->update_record('local_stream_rec', $exists);
+                    mtrace('Task: Updating recording #' . $meeting->id . ' details in the db.');
+                }
 
                 continue;
             }
@@ -2635,14 +2717,22 @@ class local_stream_help {
         $itemid = (string) $data->id;
         $dedupekey = 't_' . substr(sha1(($drivearg ?? '') . '|' . $itemid), 0, 40);
 
-        if ($DB->get_record('local_stream_rec', ['recordingid' => $dedupekey])) {
+        if ($exists = $DB->get_record('local_stream_rec', ['recordingid' => $dedupekey])) {
+            if ($this->resetexistingstatus) {
+                $this->reset_recording_to_initial_status($exists);
+                return true;
+            }
             mtrace('Skip Meeting: ' . $itemid);
             return false;
         }
 
         // fileid is XMLDB text — get_record() conditions are rejected when debugging is on; use sql_compare_text.
         $filewhere = $DB->sql_compare_text('fileid', 4000) . ' = :teamsfileid';
-        if ($DB->record_exists_select('local_stream_rec', $filewhere, ['teamsfileid' => $itemid])) {
+        if ($exists = $DB->get_record_select('local_stream_rec', $filewhere, ['teamsfileid' => $itemid])) {
+            if ($this->resetexistingstatus) {
+                $this->reset_recording_to_initial_status($exists);
+                return true;
+            }
             mtrace('Skip Meeting (fileid): ' . $itemid);
             return false;
         }
