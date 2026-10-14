@@ -2779,7 +2779,6 @@ class local_stream_help {
             return (int) $raw;
         }
 
-        // Prefer the API's own error/message fields exactly when present.
         $apierror = $this->stream_extract_api_error_message($response, $responsearr, $raw);
 
         $context = [];
@@ -2800,7 +2799,6 @@ class local_stream_help {
                     . ($requestdomain !== '' ? ' blocked_domain=' . $requestdomain : '');
         }
 
-        // Exact server payload (no rewrite) — this is what Stream returned.
         mtrace('Task: error can\'t upload video to stream'
                 . $blockednote
                 . ' request_url=' . $url
@@ -2808,13 +2806,14 @@ class local_stream_help {
                 . ' http=' . $httpcode
                 . ($curlerror !== '' ? ' curl_error=' . $curlerror : '')
                 . ($context ? ' [' . implode(', ', $context) . ']' : ''));
-        mtrace('Task: stream API error: ' . $apierror);
+        mtrace('Task: stream API error message: ' . $apierror);
+        mtrace('Task: stream API raw response: ' . ($raw !== '' ? $raw : '(empty)'));
 
         return false;
     }
 
     /**
-     * Build the exact Stream API error text from a decoded response / raw body.
+     * Build a clear Stream API error text from decoded response / raw body.
      *
      * @param mixed $response json_decode object/array/null
      * @param mixed $responsearr json_decode(..., true)
@@ -2828,19 +2827,19 @@ class local_stream_help {
         if (is_object($response)) {
             $candidates[] = $response;
         }
-        if (is_array($responsearr)) {
-            // e.g. {"error":true,"message":"..."} or nested first element.
+        if (is_array($responsearr) && $responsearr !== [] && array_keys($responsearr) !== range(0, count($responsearr) - 1)) {
+            // Associative object payload, e.g. {"error":true,"message":"..."}.
             $candidates[] = (object) $responsearr;
-            if (isset($responsearr[0]) && (is_array($responsearr[0]) || is_object($responsearr[0]))) {
-                $candidates[] = (object) $responsearr[0];
-            }
+        }
+        if (is_array($responsearr) && isset($responsearr[0]) && (is_array($responsearr[0]) || is_object($responsearr[0]))) {
+            $candidates[] = (object) $responsearr[0];
         }
 
         foreach ($candidates as $obj) {
             if (!is_object($obj)) {
                 continue;
             }
-            foreach (['message', 'error', 'error_message', 'errmsg', 'exception', 'detail', 'details'] as $key) {
+            foreach (['message', 'error_message', 'errmsg', 'exception', 'detail', 'details', 'error'] as $key) {
                 if (!isset($obj->$key)) {
                     continue;
                 }
@@ -2858,7 +2857,13 @@ class local_stream_help {
             }
         }
 
-        // No structured message — return the exact raw body from the API.
+        // Legacy bug on Stream: valid auth but no streamid → bare [].
+        if (trim($raw) === '[]' || $responsearr === []) {
+            return 'Stream API returned empty result [] (no streamid and no message). '
+                    . 'Usually: user could not be resolved for the recording email, '
+                    . 'video insert failed, or hostname blocked — deploy updated webservice/api.php.';
+        }
+
         if ($raw === '') {
             return '(empty response body)';
         }
