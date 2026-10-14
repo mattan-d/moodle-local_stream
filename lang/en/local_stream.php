@@ -102,6 +102,11 @@ $string['settingspage'] = 'Settings';
 $string['starttime'] = 'Start time';
 $string['status'] = 'Status';
 $string['storage'] = 'Storage';
+$string['uploadonlywithcourse'] = 'Upload to Stream only when a Moodle course is assigned';
+$string['uploadonlywithcourse_desc'] =
+        'When storage is Stream: upload only recordings that are linked to a Moodle course '
+        . '(e.g. Zoom activity in a course, or a course set on the recording). '
+        . 'Other recordings from listing stay queued and are not uploaded to Stream until a course is assigned.';
 $string['stream:edit'] = 'Edit recordings';
 $string['stream:manage'] = 'Manage and view meetings';
 $string['stream:view'] = 'View recordings';

@@ -139,6 +139,27 @@ class upload extends \core\task\scheduled_task {
                 }
             }
 
+            // Fallback: course already stored on the local_stream_rec row (e.g. manual assign).
+            if (!$course && !empty($meeting->course) && $DB->record_exists('course', ['id' => (int) $meeting->course])) {
+                $course = get_course((int) $meeting->course);
+                $stream['tags'] = $help->get_category_tree($course->category);
+                $course->page = new \moodle_url('/course/view.php', ['id' => $course->id]);
+                $stream['description'] = $meeting->topic . "\n\n" . $course->fullname . "\n" . $course->page . "\n";
+                $stream['coursename'] = $course->fullname;
+                $stream['courseid'] = $course->id;
+            }
+
+            // Stream storage: optionally upload only recordings linked to a Moodle course (for embed).
+            $uploadonlywithcourse = !empty($help->config->uploadonlywithcourse);
+            $storagestream = ((int) $help->config->storage === $help::STORAGE_STREAM);
+            if ($storagestream && $uploadonlywithcourse && !$course) {
+                mtrace('Task: Skipping upload #' . $meeting->id
+                        . ' — no Moodle course assigned (uploadonlywithcourse)'
+                        . ' topic="' . $meeting->topic . '"'
+                        . ' email=' . $meeting->email);
+                continue;
+            }
+
             // Closed Caption.
             if ($meetingdata) {
                 $closedcaption =

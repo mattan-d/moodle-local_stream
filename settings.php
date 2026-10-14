@@ -59,6 +59,13 @@ if ($hassiteconfig) {
                     local_stream_help::STORAGE_NODOWNLOAD => get_string('nodownload', 'local_stream'),
             ]));
 
+    $settings->add(new admin_setting_configcheckbox('local_stream/uploadonlywithcourse',
+            get_string('uploadonlywithcourse', 'local_stream'),
+            get_string('uploadonlywithcourse_desc', 'local_stream'),
+            0));
+    $settings->hide_if('local_stream/uploadonlywithcourse', 'local_stream/storage', 'neq',
+            (string) local_stream_help::STORAGE_STREAM);
+
     $options = [
             10 => 10, 20 => 20, 30 => 30, 50 => 50, 100 => 100, 150 => 150,
     ];
