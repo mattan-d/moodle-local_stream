@@ -2867,6 +2867,31 @@ class local_stream_help {
     }
 
     /**
+     * Clean text for Stream API (remove emoji / control chars; keep Hebrew & Latin).
+     *
+     * @param string $text
+     * @return string
+     */
+    public function sanitize_stream_text(string $text): string {
+        // Emoji & pictographs.
+        $text = preg_replace('/[\x{1F000}-\x{1FFFF}]/u', '', $text) ?? $text;
+        // Misc symbols (☀– домини), dingbats.
+        $text = preg_replace('/[\x{2600}-\x{27BF}]/u', '', $text) ?? $text;
+        // Variation selectors / ZWJ (often left after emoji).
+        $text = preg_replace('/[\x{FE00}-\x{FE0F}\x{200D}]/u', '', $text) ?? $text;
+        // Control characters (keep normal whitespace).
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $text) ?? $text;
+        // Fancy quotes → plain ASCII quote.
+        $text = str_replace(
+                ["\u{201C}", "\u{201D}", "\u{201E}", "\u{201F}", "\u{00AB}", "\u{00BB}"],
+                '"',
+                $text
+        );
+        $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
+        return trim($text);
+    }
+
+    /**
      * Uploads a video stream to a given URL.
      *
      * @param array $data The data to upload.
@@ -2876,9 +2901,21 @@ class local_stream_help {
 
         $url = rtrim((string) ($this->config->streamurl ?? ''), '/') . '/webservice/api/v1';
 
+        // Sanitize free-text fields that may contain emoji / special chars from Zoom topics.
+        foreach (['topic', 'description', 'coursename', 'firstname', 'lastname'] as $field) {
+            if (!empty($data[$field]) && is_string($data[$field])) {
+                $clean = $this->sanitize_stream_text($data[$field]);
+                if ($clean !== $data[$field]) {
+                    mtrace('Task: Sanitized ' . $field . ': "' . $data[$field] . '" → "' . $clean . '"');
+                }
+                $data[$field] = $clean !== '' ? $clean : ('recording-' . time());
+            }
+        }
+
         $headers = [
                 'Authorization: Bearer ' . $this->config->streamkey,
                 'Accept: application/json',
+                'Content-Type: application/x-www-form-urlencoded; charset=UTF-8',
         ];
 
         $options = [
@@ -2892,7 +2929,8 @@ class local_stream_help {
         ];
 
         $started = microtime(true);
-        mtrace('Task: Calling Stream API ' . $url);
+        mtrace('Task: Calling Stream API ' . $url
+                . ' topic="' . ($data['topic'] ?? '') . '"');
 
         $curl = new \curl();
         $jsonresult = $curl->post($url, $data, $options);
