@@ -2886,17 +2886,27 @@ class local_stream_help {
                 'CURLOPT_RETURNTRANSFER' => true,
                 'CURLOPT_HTTP_VERSION' => CURL_HTTP_VERSION_1_1,
                 'CURLOPT_HTTPHEADER' => $headers,
+                // Stream may fetch Zoom media server-side; avoid hanging the Moodle task forever.
+                'CURLOPT_CONNECTTIMEOUT' => 30,
+                'CURLOPT_TIMEOUT' => 300,
         ];
+
+        $started = microtime(true);
+        mtrace('Task: Calling Stream API ' . $url);
 
         $curl = new \curl();
         $jsonresult = $curl->post($url, $data, $options);
 
+        $elapsed = round(microtime(true) - $started, 1);
         $info = $curl->get_info();
         $httpcode = (int) ($info['http_code'] ?? 0);
         $curlerror = trim((string) ($curl->error ?? ''));
         $raw = is_string($jsonresult) ? $jsonresult : '';
         $response = json_decode($raw);
         $responsearr = json_decode($raw, true);
+
+        mtrace('Task: Stream API responded in ' . $elapsed . 's http=' . $httpcode
+                . ($curlerror !== '' ? ' curl_error=' . $curlerror : ''));
 
         // Success: object with streamid, or bare numeric id.
         if (is_object($response) && isset($response->streamid) && $response->streamid) {

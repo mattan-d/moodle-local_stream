@@ -61,12 +61,20 @@ class upload extends \core\task\scheduled_task {
         if (!$meetings) {
             mtrace('Task: No meetings were found.');
             return true;
-        } else {
-            $totalcount = count($meetings);
-            mtrace('Task: Found ' . $totalcount . ' meetings');
         }
 
+        $totalcount = count($meetings);
+        mtrace('Task: Found ' . $totalcount . ' meetings');
+
+        $index = 0;
         foreach ($meetings as $meeting) {
+            $index++;
+            mtrace('Task: Processing ' . $index . '/' . $totalcount
+                    . ' recording #' . $meeting->id
+                    . ' topic="' . $meeting->topic . '"'
+                    . ' email=' . $meeting->email
+                    . ' status=' . $meeting->status
+                    . ' tries=' . $meeting->tries);
 
             if ($meeting->tries > 2 && $meeting->status == $help::MEETING_STATUS_PROCESS) {
                 $meeting->status = $help::MEETING_STATUS_INVALID;
@@ -78,6 +86,10 @@ class upload extends \core\task\scheduled_task {
 
             $recordingdata = json_decode($meeting->recordingdata);
             $meetingdata = json_decode($meeting->meetingdata);
+            if (!is_object($recordingdata)) {
+                mtrace('Task Error: Invalid recordingdata JSON for meeting ID #' . $meeting->id);
+                continue;
+            }
 
             // Meeting data for stream.
             $stream = [];
@@ -85,7 +97,9 @@ class upload extends \core\task\scheduled_task {
 
             // Webex.
             if ($help->config->platform == $help::PLATFORM_WEBEX) {
-                $recordingdata->download_url = $recordingdata->temporaryDirectDownloadLinks->recordingDownloadLink;
+                if (!empty($recordingdata->temporaryDirectDownloadLinks->recordingDownloadLink)) {
+                    $recordingdata->download_url = $recordingdata->temporaryDirectDownloadLinks->recordingDownloadLink;
+                }
             }
 
             // Zoom.
@@ -123,7 +137,7 @@ class upload extends \core\task\scheduled_task {
             // Unicko.
             if ($help->config->platform == $help::PLATFORM_UNICKO) {
                 $module = $DB->get_record('modules', ['name' => 'lti']);
-                if (isset($recordingdata->instanceid) && $recordingdata->instanceid) {
+                if ($module && isset($recordingdata->instanceid) && $recordingdata->instanceid) {
                     if ($cm = $DB->get_record('course_modules',
                             ['instance' => $recordingdata->instanceid, 'module' => $module->id])) {
                         if ($course = get_course($cm->course)) {
@@ -161,7 +175,7 @@ class upload extends \core\task\scheduled_task {
             }
 
             // Closed Caption.
-            if ($meetingdata) {
+            if (is_object($meetingdata) && !empty($meetingdata->uuid)) {
                 $closedcaption =
                         $DB->get_record('local_stream_cc',
                                 ['meetingid' => $meeting->meetingid, 'uuid' => $meetingdata->uuid]);
@@ -176,7 +190,6 @@ class upload extends \core\task\scheduled_task {
 
             $user = $DB->get_record('user', ['email' => $meeting->email]);
             if ($user) {
-                // add user fields
                 $stream['firstname'] = $user->firstname;
                 $stream['lastname'] = $user->lastname;
                 $stream['username'] = $user->username;
@@ -189,11 +202,11 @@ class upload extends \core\task\scheduled_task {
             $stream['hostname'] = $CFG->wwwroot;
 
             if ($course && isset($course->id)) {
-                // Get the course context.
+                mtrace('Task: Course linked #' . $course->id . ' "' . $course->fullname . '"');
                 $context = \context_course::instance($course->id);
                 $tags = \core_tag_tag::get_item_tags('core', 'course', $course->id, $context->id);
                 if ($tags) {
-                    if ($stream['tags']) {
+                    if (!empty($stream['tags'])) {
                         $stream['tags'] = json_decode($stream['tags']);
                     } else {
                         $stream['tags'] = [];
@@ -213,7 +226,13 @@ class upload extends \core\task\scheduled_task {
             }
 
             $videoid = 0;
-            if (isset($recordingdata->download_url) && $recordingdata->download_url) {
+            if (!empty($recordingdata->download_url)) {
+                // Mark as in-progress so a stuck run is visible in the DB.
+                $meeting->status = $help::MEETING_STATUS_PROCESS;
+                $meeting->tries = ((int) $meeting->tries) + 1;
+                $DB->update_record('local_stream_rec', $meeting);
+
+                mtrace('Task: Uploading to Stream (try ' . $meeting->tries . ')…');
                 $videoid = $help->upload_stream($stream);
             }
 
@@ -241,9 +260,12 @@ class upload extends \core\task\scheduled_task {
                 } else {
                     mtrace('Task: Video #' . $videoid . ' file successfully uploaded to Stream.');
                 }
+            } else {
+                mtrace('Task: Upload did not complete for recording #' . $meeting->id);
             }
         }
 
+        mtrace('Task: Upload run finished (' . $totalcount . ' meetings processed).');
         return true;
     }
 }
