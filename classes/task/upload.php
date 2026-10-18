@@ -197,9 +197,15 @@ class upload extends \core\task\scheduled_task {
 
             $stream['downloadurl'] = $recordingdata->download_url ?? '';
             $stream['category'] = $help->config->streamcategoryid;
-            $stream['recordingdata'] = json_encode($meeting->recordingdata);
-            $stream['meetingdata'] = json_encode($meeting->meetingdata);
-            $stream['hostname'] = $CFG->wwwroot;
+            // DB columns are already JSON strings — do not json_encode again (that wraps as "\"{...}\"").
+            $stream['recordingdata'] = is_string($meeting->recordingdata)
+                    ? $meeting->recordingdata
+                    : json_encode($meeting->recordingdata);
+            $stream['meetingdata'] = is_string($meeting->meetingdata)
+                    ? $meeting->meetingdata
+                    : json_encode($meeting->meetingdata);
+            $stream['hostname'] = rtrim((string) $CFG->wwwroot, '/');
+            mtrace('Task: hostname=' . $stream['hostname']);
 
             if ($course && isset($course->id)) {
                 mtrace('Task: Course linked #' . $course->id . ' "' . $course->fullname . '"');

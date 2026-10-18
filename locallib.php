@@ -2912,10 +2912,18 @@ class local_stream_help {
             }
         }
 
+        // Hostname is required by Stream (allowlist / blocked hosts). Always send wwwroot.
+        global $CFG;
+        if (empty($data['hostname'])) {
+            $data['hostname'] = (string) $CFG->wwwroot;
+        }
+        $data['hostname'] = rtrim((string) $data['hostname'], '/');
+
+        // Do NOT force Content-Type: Moodle curl posts arrays as multipart/form-data.
+        // A manual urlencoded Content-Type breaks parsing and can drop fields like hostname.
         $headers = [
                 'Authorization: Bearer ' . $this->config->streamkey,
                 'Accept: application/json',
-                'Content-Type: application/x-www-form-urlencoded; charset=UTF-8',
         ];
 
         $options = [
@@ -2930,7 +2938,9 @@ class local_stream_help {
 
         $started = microtime(true);
         mtrace('Task: Calling Stream API ' . $url
-                . ' topic="' . ($data['topic'] ?? '') . '"');
+                . ' topic="' . ($data['topic'] ?? '') . '"'
+                . ' hostname=' . $data['hostname']
+                . ' fields=' . implode(',', array_keys($data)));
 
         $curl = new \curl();
         $jsonresult = $curl->post($url, $data, $options);
