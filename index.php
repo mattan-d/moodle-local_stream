@@ -82,16 +82,32 @@ $fs = get_file_storage();
 $form = new local_stream_form();
 
 $basefilter = [];
-$basefilter['status'] = [$help::MEETING_STATUS_READY];
+$allstatuses = $help->all_recording_statuses();
+$basefilter['status'] = $allstatuses;
+$basefilter['recstatus'] = -1;
 
 $meetingsfiltering = $cache->get('filters');
 if (!$meetingsfiltering) {
     $meetingsfiltering = $basefilter;
+    $meetingsfiltering['recstatus'] = -1;
     $cache->set('filters', $meetingsfiltering);
 }
 
+// Older caches stored only "ready". Treat that implicit default as "all statuses".
+if (!array_key_exists('recstatus', $meetingsfiltering)) {
+    $meetingsfiltering['recstatus'] = -1;
+    $meetingsfiltering['status'] = $allstatuses;
+    $cache->set('filters', $meetingsfiltering);
+} else if ((int) $meetingsfiltering['recstatus'] < 0) {
+    $meetingsfiltering['status'] = $allstatuses;
+} else {
+    $meetingsfiltering['status'] = [(int) $meetingsfiltering['recstatus']];
+}
+
 if ($form->is_cancelled()) {
-    $cache->set('filters', $basefilter);
+    $reset = $basefilter;
+    $reset['recstatus'] = -1;
+    $cache->set('filters', $reset);
     $baseurl = new moodle_url('/local/stream/index.php');
     redirect($baseurl);
 }
@@ -134,6 +150,15 @@ if (($search = $form->get_data()) && confirm_sesskey()) {
     if (isset($search->duration) && $search->duration) {
         $interval = new DateInterval('PT' . $search->duration . 'S');
         $meetingsfiltering['duration'] = $interval->format('%H:%I:%S');
+    }
+
+    if (isset($search->recstatus)) {
+        $meetingsfiltering['recstatus'] = (int) $search->recstatus;
+        if ($meetingsfiltering['recstatus'] < 0) {
+            $meetingsfiltering['status'] = $allstatuses;
+        } else {
+            $meetingsfiltering['status'] = [$meetingsfiltering['recstatus']];
+        }
     }
 
     $cache->set('filters', $meetingsfiltering);
@@ -280,13 +305,14 @@ foreach ($data as $row) {
     } else if ($row['status'] == $help::MEETING_STATUS_READY) {
         $statusicon = $OUTPUT->action_icon(new moodle_url('/local/stream/meeting.php',
                 ['id' => $row['id'], 'sesskey' => sesskey()]), $icons['valid']);
-    } else if ($row['status'] == $help::MEETING_STATUS_PROCESS) {
+    } else if ($row['status'] == $help::MEETING_STATUS_PROCESS || $row['status'] == $help::MEETING_STATUS_QUEUE) {
         $statusicon = $OUTPUT->action_icon(new moodle_url('/local/stream/meeting.php',
                 ['id' => $row['id'], 'sesskey' => sesskey()]), $icons['progressbar']);
     } else {
         $statusicon = $OUTPUT->action_icon(new moodle_url('/local/stream/meeting.php',
                 ['id' => $row['id'], 'sesskey' => sesskey()]), $icons['invalid']);
     }
+    $statusicon .= ' ' . s($help->recording_status_label((int) $row['status']));
 
     $buttons = '<div class="btn-group" role="group">' .
             '<button id="btnGroupDrop" type="button" class="btn btn-secondary dropdown-toggle ' .
@@ -376,6 +402,7 @@ if (isset($searchcount)) {
 $basepagingurl = ($courseid ? 'index.php?courseid=' . $courseid : 'index.php');
 echo $OUTPUT->paging_bar($recordingscount, $page, $perpage, $basepagingurl);
 
+$form->set_data((object) ['recstatus' => (int) ($meetingsfiltering['recstatus'] ?? -1)]);
 $form->display();
 echo html_writer::table($table);
 echo $OUTPUT->paging_bar($recordingscount, $page, $perpage, $basepagingurl);

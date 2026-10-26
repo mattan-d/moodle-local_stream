@@ -148,6 +148,10 @@ class local_stream_form extends moodleform {
         $mform->setAdvanced('meeting');
 
         if ($help->has_capability_to_edit()) {
+            $mform->addElement('select', 'recstatus', get_string('status'), $help->recording_status_options());
+            $mform->setDefault('recstatus', -1);
+            $mform->setType('recstatus', PARAM_INT);
+
             $mform->addElement('select', 'visible', get_string('visible'),
                     [0 => get_string('all'), 1 => get_string('show'), 2 => get_string('hide')]);
             $mform->setAdvanced('visible');

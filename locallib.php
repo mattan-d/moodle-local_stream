@@ -183,6 +183,50 @@ class local_stream_help {
     }
 
     /**
+     * All recording statuses shown on the recordings board.
+     *
+     * @return int[]
+     */
+    public function all_recording_statuses(): array {
+        return [
+                self::MEETING_STATUS_QUEUE,
+                self::MEETING_STATUS_PROCESS,
+                self::MEETING_STATUS_READY,
+                self::MEETING_STATUS_DELETED,
+                self::MEETING_STATUS_INVALID,
+                self::MEETING_STATUS_ARCHIVE,
+        ];
+    }
+
+    /**
+     * Status filter options for the recordings board. -1 means all.
+     *
+     * @return array<int,string>
+     */
+    public function recording_status_options(): array {
+        return [
+                -1 => get_string('all'),
+                self::MEETING_STATUS_QUEUE => get_string('statusqueue', 'local_stream'),
+                self::MEETING_STATUS_PROCESS => get_string('statusprocess', 'local_stream'),
+                self::MEETING_STATUS_READY => get_string('statusready', 'local_stream'),
+                self::MEETING_STATUS_DELETED => get_string('statusdeleted', 'local_stream'),
+                self::MEETING_STATUS_INVALID => get_string('statusinvalid', 'local_stream'),
+                self::MEETING_STATUS_ARCHIVE => get_string('statusarchive', 'local_stream'),
+        ];
+    }
+
+    /**
+     * Human-readable recording status.
+     *
+     * @param int $status
+     * @return string
+     */
+    public function recording_status_label(int $status): string {
+        $options = $this->recording_status_options();
+        return $options[$status] ?? (string) $status;
+    }
+
+    /**
      * Format meeting details for sync/listing logs (topic, email, duration).
      *
      * @param object|null $meeting Zoom/Webex/etc meeting object
@@ -1011,17 +1055,28 @@ class local_stream_help {
             $i++;
 
             if (!$meeting->has_recording) {
+                mtrace('Task: No Zoom recording for this meeting.');
                 continue;
             }
 
             $recordingsinstances =
                     $this->call_zoom_api('/meetings/' . $this->encode_uuid($meeting->uuid) . '/recordings');
 
-            if (!isset($recordingsinstances->recording_files)) {
+            $files = $recordingsinstances->recording_files ?? null;
+            if (!is_array($files) || !$files) {
+                mtrace('Task: Zoom marked a recording, but no recording files were returned.');
                 continue;
             }
 
-            foreach ($recordingsinstances->recording_files as $recording) {
+            $mp4count = 0;
+            foreach ($files as $file) {
+                if (isset($file->file_type) && strtolower($file->file_type) === 'mp4') {
+                    $mp4count++;
+                }
+            }
+            mtrace('Task: Zoom recordings found: ' . count($files) . ' file(s), ' . $mp4count . ' mp4.');
+
+            foreach ($files as $recording) {
 
                 if ($exists = $DB->get_record('local_stream_rec',
                         ['meetingid' => $meeting->id, 'recordingid' => $recording->id])) {
@@ -1979,6 +2034,7 @@ class local_stream_help {
 
         $sql = '';
         $page = ($page * $this->config->recordingsperpage);
+        unset($params['recstatus']);
 
         if ($params['status']) {
             $sql .= ' status IN (' . implode(',', $params['status']) . ')';
