@@ -248,6 +248,16 @@ class local_stream_help {
             $parts[] = 'email=' . strtolower($email);
         }
 
+        $start = $meeting->start_time ?? $meeting->startTime ?? $meeting->createTime ?? '';
+        if ($start !== '') {
+            $ts = strtotime((string) $start);
+            if ($ts) {
+                $parts[] = 'date=' . userdate($ts, '%Y-%m-%d %H:%M');
+            } else {
+                $parts[] = 'date=' . $start;
+            }
+        }
+
         if (isset($meeting->durationSeconds) && is_numeric($meeting->durationSeconds)) {
             // Webex: duration in seconds.
             $parts[] = 'duration=' . $this->seconds_to_hms((int) $meeting->durationSeconds);
