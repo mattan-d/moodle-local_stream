@@ -33,12 +33,16 @@ list($options, $unrecognized) = cli_get_params(
         [
                 'days' => null,
                 'date' => null,
+                'meetingid' => null,
+                'email' => null,
                 'reset-status' => false,
                 'help' => false,
         ],
         [
                 'd' => 'days',
                 'f' => 'date',
+                'm' => 'meetingid',
+                'e' => 'email',
                 'r' => 'reset-status',
                 'h' => 'help',
         ]
@@ -56,10 +60,14 @@ if ($options['help']) {
 Options:
 -d, --days=NUMBER       Number of days to sync backwards (default: from plugin config)
 -f, --date=DATE         Specific date to sync (format: YYYY-MM-DD)
+-m, --meetingid=ID      Sync only this meeting id (example: 85410280109)
+-e, --email=EMAIL       Sync only recordings of this host email
 -r, --reset-status      Re-queue existing DB recordings to initial status (like new)
 -h, --help              Print out this help
 
 Note: If both --days and --date are specified, --date takes precedence.
+--meetingid and --email can be combined with --days or --date. They filter
+the meetings already fetched for that range (all instances of a recurring meeting).
 
 With --reset-status, recordings that already exist are not skipped: their status
 is set back to the initial queue status (0), tries=0, and meeting/recording
@@ -72,6 +80,8 @@ Examples:
 \$ php cli/sync.php -f 2024-01-15
 \$ php cli/sync.php --days=3 --reset-status
 \$ php cli/sync.php -d 3 -r
+\$ php cli/sync.php --days=7 --meetingid=85410280109
+\$ php cli/sync.php --days=7 --email=sharongold@netanya.ac.il
 ";
 
     echo $help;
@@ -81,6 +91,11 @@ Examples:
 // Initialize helper.
 $help = new local_stream_help();
 $help->resetexistingstatus = !empty($options['reset-status']);
+$help->syncmeetingid = ltrim(trim((string) ($options['meetingid'] ?? '')), '#');
+$help->syncemail = strtolower(trim((string) ($options['email'] ?? '')));
+if ($help->syncemail !== '' && !validate_email($help->syncemail)) {
+    cli_error('Error: Invalid email.');
+}
 
 if (isset($options['date']) && $options['date'] !== null) {
     // Validate date format.
@@ -124,6 +139,12 @@ if ($specificdate) {
 }
 if ($help->resetexistingstatus) {
     cli_writeln("Reset-status enabled: existing recordings will be re-queued to initial status");
+}
+if ($help->syncmeetingid !== '') {
+    cli_writeln("Filtering by meeting id: {$help->syncmeetingid}");
+}
+if ($help->syncemail !== '') {
+    cli_writeln("Filtering by email: {$help->syncemail}");
 }
 cli_writeln(str_repeat('-', 60));
 

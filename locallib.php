@@ -148,6 +148,20 @@ class local_stream_help {
     public $resetexistingstatus = false;
 
     /**
+     * Optional CLI filter: Zoom/Webex meeting id (numeric string).
+     *
+     * @var string
+     */
+    public $syncmeetingid = '';
+
+    /**
+     * Optional CLI filter: host email (exact, case-insensitive).
+     *
+     * @var string
+     */
+    public $syncemail = '';
+
+    /**
      * Constructor function.
      * Initializes the object by setting the 'config' property using the 'local_stream' configuration.
      */
@@ -203,6 +217,42 @@ class local_stream_help {
         }
 
         return $parts ? ' [' . implode(', ', $parts) . ']' : '';
+    }
+
+    /**
+     * Keep only meetings matching optional CLI filters (meeting id and/or host email).
+     *
+     * @param array $meetings
+     * @return array
+     */
+    public function filter_meetings_for_sync(array $meetings): array {
+        $meetingid = ltrim(trim((string) $this->syncmeetingid), '#');
+        $email = strtolower(trim((string) $this->syncemail));
+        if ($meetingid === '' && $email === '') {
+            return $meetings;
+        }
+
+        $filtered = [];
+        foreach ($meetings as $meeting) {
+            if (!is_object($meeting)) {
+                continue;
+            }
+            if ($meetingid !== '') {
+                $id = (string) ($meeting->id ?? $meeting->meetingId ?? '');
+                if ($id !== $meetingid) {
+                    continue;
+                }
+            }
+            if ($email !== '') {
+                $host = strtolower(trim((string) ($meeting->email ?? $meeting->hostEmail ?? '')));
+                if ($host !== $email) {
+                    continue;
+                }
+            }
+            $filtered[] = $meeting;
+        }
+
+        return $filtered;
     }
 
     /**
@@ -938,9 +988,19 @@ class local_stream_help {
         if (!$meetings) {
             mtrace('Task: No Zoom meetings were found.');
             return;
+        }
+
+        $fetched = count($meetings);
+        $meetings = $this->filter_meetings_for_sync($meetings);
+        $totalcount = count($meetings);
+        if ($totalcount !== $fetched) {
+            mtrace('Task: Found ' . $fetched . ' meetings; ' . $totalcount . ' match the sync filter.');
         } else {
-            $totalcount = count($meetings);
             mtrace('Task: Found ' . $totalcount . ' meetings');
+        }
+        if (!$meetings) {
+            mtrace('Task: No meetings left after filter.');
+            return;
         }
 
         $i = 0;
@@ -1047,9 +1107,19 @@ class local_stream_help {
         if (!$meetings->items) {
             mtrace('Task: No Webex meetings were found.');
             return;
+        }
+
+        $fetched = count($meetings->items);
+        $meetings->items = $this->filter_meetings_for_sync($meetings->items);
+        $totalcount = count($meetings->items);
+        if ($totalcount !== $fetched) {
+            mtrace('Task: Found ' . $fetched . ' meetings; ' . $totalcount . ' match the sync filter.');
         } else {
-            $totalcount = count($meetings->items);
             mtrace('Task: Found ' . $totalcount . ' meetings');
+        }
+        if (!$meetings->items) {
+            mtrace('Task: No meetings left after filter.');
+            return;
         }
 
         $i = 0;
