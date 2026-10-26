@@ -36,6 +36,7 @@ list($options, $unrecognized) = cli_get_params(
                 'meetingid' => null,
                 'email' => null,
                 'reset-status' => false,
+                'recover-trash' => false,
                 'help' => false,
         ],
         [
@@ -44,6 +45,7 @@ list($options, $unrecognized) = cli_get_params(
                 'm' => 'meetingid',
                 'e' => 'email',
                 'r' => 'reset-status',
+                't' => 'recover-trash',
                 'h' => 'help',
         ]
 );
@@ -63,6 +65,7 @@ Options:
 -m, --meetingid=ID      Sync only this meeting id (example: 85410280109)
 -e, --email=EMAIL       Sync only recordings of this host email
 -r, --reset-status      Re-queue existing DB recordings to initial status (like new)
+-t, --recover-trash     Restore this meeting's recordings from the Zoom trash, then sync them
 -h, --help              Print out this help
 
 Note: If both --days and --date are specified, --date takes precedence.
@@ -73,6 +76,9 @@ With --reset-status, recordings that already exist are not skipped: their status
 is set back to the initial queue status (0), tries=0, and meeting/recording
 metadata is refreshed from the platform (fresh download URLs).
 
+With --recover-trash, when a meeting has no active cloud recording the script
+looks in the Zoom recycle bin and restores those files before indexing them.
+
 Examples:
 \$ php cli/sync.php --days=7
 \$ php cli/sync.php -d 30
@@ -82,6 +88,7 @@ Examples:
 \$ php cli/sync.php -d 3 -r
 \$ php cli/sync.php --days=7 --meetingid=85410280109
 \$ php cli/sync.php --days=7 --email=sharongold@netanya.ac.il
+\$ php cli/sync.php --days=7 --email=sharongold@netanya.ac.il --recover-trash
 ";
 
     echo $help;
@@ -91,6 +98,7 @@ Examples:
 // Initialize helper.
 $help = new local_stream_help();
 $help->resetexistingstatus = !empty($options['reset-status']);
+$help->recoverzoomtrash = !empty($options['recover-trash']);
 $help->syncmeetingid = ltrim(trim((string) ($options['meetingid'] ?? '')), '#');
 $help->syncemail = strtolower(trim((string) ($options['email'] ?? '')));
 if ($help->syncemail !== '' && !validate_email($help->syncemail)) {
@@ -139,6 +147,9 @@ if ($specificdate) {
 }
 if ($help->resetexistingstatus) {
     cli_writeln("Reset-status enabled: existing recordings will be re-queued to initial status");
+}
+if ($help->recoverzoomtrash) {
+    cli_writeln("Recover-trash enabled: missing recordings will be restored from the Zoom trash");
 }
 if ($help->syncmeetingid !== '') {
     cli_writeln("Filtering by meeting id: {$help->syncmeetingid}");

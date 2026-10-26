@@ -162,6 +162,13 @@ class local_stream_help {
     public $syncemail = '';
 
     /**
+     * When true (CLI --recover-trash), try to restore Zoom recordings from the recycle bin.
+     *
+     * @var bool
+     */
+    public $recoverzoomtrash = false;
+
+    /**
      * Constructor function.
      * Initializes the object by setting the 'config' property using the 'local_stream' configuration.
      */
@@ -1030,6 +1037,99 @@ class local_stream_help {
     }
 
     /**
+     * Active cloud recording files for one Zoom meeting instance.
+     *
+     * @param object $meeting Metrics meeting (needs uuid)
+     * @return array
+     */
+    public function zoom_recording_files($meeting): array {
+        if (empty($meeting->uuid)) {
+            return [];
+        }
+        $response = $this->call_zoom_api('meetings/' . $this->encode_uuid($meeting->uuid) . '/recordings', [], 'get', false, true);
+        $files = (is_object($response) && isset($response->recording_files) && is_array($response->recording_files))
+                ? $response->recording_files
+                : [];
+        return $files;
+    }
+
+    /**
+     * Recording files currently in the Zoom trash for this meeting instance.
+     *
+     * @param object $meeting
+     * @param string $from Y-m-d
+     * @param string $to Y-m-d
+     * @return array Trash meeting objects that belong to this meeting id or uuid
+     */
+    public function zoom_trash_files_for_meeting($meeting, string $from, string $to): array {
+        $email = strtolower(trim((string) ($meeting->email ?? '')));
+        if ($email === '' || $from === '' || $to === '') {
+            return [];
+        }
+
+        $url = 'users/' . rawurlencode($email) . '/recordings?trash=true'
+                . '&from=' . rawurlencode($from)
+                . '&to=' . rawurlencode($to)
+                . '&page_size=300';
+        $response = $this->call_zoom_api($url, [], 'get', false, true);
+        $meetings = (is_object($response) && isset($response->meetings) && is_array($response->meetings))
+                ? $response->meetings
+                : [];
+
+        $wantedid = (string) ($meeting->id ?? '');
+        $wanteduuid = (string) ($meeting->uuid ?? '');
+        $matched = [];
+        foreach ($meetings as $trashed) {
+            if (!is_object($trashed)) {
+                continue;
+            }
+            $sameid = $wantedid !== '' && (string) ($trashed->id ?? '') === $wantedid;
+            $sameuuid = $wanteduuid !== '' && (string) ($trashed->uuid ?? '') === $wanteduuid;
+            if (!$sameuuid && !$sameid) {
+                continue;
+            }
+            $matched[] = $trashed;
+        }
+        return $matched;
+    }
+
+    /**
+     * Restore trashed Zoom recording files for the matched trash meetings.
+     *
+     * @param object $meeting Metrics meeting, used as a fallback id
+     * @param array $trashmeetings Meetings returned by the Zoom trash list
+     * @return void
+     */
+    public function recover_zoom_trash_files($meeting, array $trashmeetings): void {
+        foreach ($trashmeetings as $trashed) {
+            if (!is_object($trashed)) {
+                continue;
+            }
+            $uuid = (string) ($trashed->uuid ?? $meeting->uuid ?? '');
+            $meetingid = (string) ($trashed->id ?? $meeting->id ?? '');
+            $base = $uuid !== '' ? ('meetings/' . $this->encode_uuid($uuid)) : ('meetings/' . rawurlencode($meetingid));
+            $files = (isset($trashed->recording_files) && is_array($trashed->recording_files))
+                    ? $trashed->recording_files
+                    : [];
+            foreach ($files as $file) {
+                $recordingid = is_object($file) ? (string) ($file->id ?? '') : '';
+                if ($recordingid === '') {
+                    continue;
+                }
+                $url = $base . '/recordings/' . rawurlencode($recordingid) . '/status';
+                $info = $this->call_zoom_api($url, ['action' => 'recover'], 'put', true, true);
+                $code = is_array($info) ? (int) ($info['http_code'] ?? 0) : 0;
+                mtrace('Task: Recover trash file #' . $recordingid . ' HTTP ' . $code);
+            }
+            if ($base !== '') {
+                $info = $this->call_zoom_api($base . '/recordings/status', ['action' => 'recover'], 'put', true, true);
+                $code = is_array($info) ? (int) ($info['http_code'] ?? 0) : 0;
+                mtrace('Task: Recover trash meeting recordings HTTP ' . $code);
+            }
+        }
+    }
+
+    /**
      * Index recordings based on data.
      *
      * @param stdClass $data The data object.
@@ -1064,17 +1164,36 @@ class local_stream_help {
             mtrace('Task: Checking meeting ' . $i . ' out of ' . $totalcount . ' #' . $meeting->id . $meetingdetails);
             $i++;
 
-            if (!$meeting->has_recording) {
-                mtrace('Task: No Zoom recording for this meeting.');
-                continue;
+            $files = $this->zoom_recording_files($meeting);
+            if (!$files && $this->recoverzoomtrash) {
+                mtrace('Task: No active Zoom recording. Checking the Zoom trash.');
+                $trashed = $this->zoom_trash_files_for_meeting($meeting, (string) $data->from, (string) $data->to);
+                if (!$trashed) {
+                    mtrace('Task: No recordings in the Zoom trash for this meeting.');
+                } else {
+                    $trashfilecount = 0;
+                    foreach ($trashed as $trashedmeeting) {
+                        if (is_object($trashedmeeting) && !empty($trashedmeeting->recording_files)) {
+                            $trashfilecount += count($trashedmeeting->recording_files);
+                        }
+                    }
+                    mtrace('Task: Found ' . $trashfilecount . ' file(s) in the Zoom trash. Recovering.');
+                    $this->recover_zoom_trash_files($meeting, $trashed);
+                    $files = $this->zoom_recording_files($meeting);
+                    if ($files) {
+                        mtrace('Task: Recovered ' . count($files) . ' recording file(s) from the Zoom trash.');
+                    } else {
+                        mtrace('Task: Zoom trash recover did not return active recording files.');
+                    }
+                }
             }
 
-            $recordingsinstances =
-                    $this->call_zoom_api('/meetings/' . $this->encode_uuid($meeting->uuid) . '/recordings');
-
-            $files = $recordingsinstances->recording_files ?? null;
-            if (!is_array($files) || !$files) {
-                mtrace('Task: Zoom marked a recording, but no recording files were returned.');
+            if (!$files) {
+                if (empty($meeting->has_recording)) {
+                    mtrace('Task: No Zoom recording for this meeting.');
+                } else {
+                    mtrace('Task: Zoom marked a recording, but no recording files were returned.');
+                }
                 continue;
             }
 
