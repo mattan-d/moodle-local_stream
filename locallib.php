@@ -1970,8 +1970,7 @@ class local_stream_help {
             $recordingdata = json_decode($meeting->recordingdata);
         }
 
-        // mod_stream.identifier is NOT NULL with no DB default — always set a non-empty value
-        // (empty string is omitted from Moodle INSERT and MySQL then errors).
+        // mod_stream.identifier is NOT NULL with no DB default — always set a non-empty value.
         $moduledata->identifier = !empty($meeting->streamid) ? (string) $meeting->streamid : 'external';
 
         if ($this->config->storage == $this::STORAGE_NODOWNLOAD) {
