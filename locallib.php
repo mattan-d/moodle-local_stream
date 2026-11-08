@@ -1970,29 +1970,27 @@ class local_stream_help {
             $recordingdata = json_decode($meeting->recordingdata);
         }
 
+        // mod_stream.identifier is NOT NULL with no DB default — always set it.
+        $moduledata->identifier = !empty($meeting->streamid) ? (string) $meeting->streamid : '';
+
         if ($this->config->storage == $this::STORAGE_NODOWNLOAD) {
+            $recordingurl = '';
 
-            // Webex.
-            if ($this->config->platform == $this::PLATFORM_WEBEX) {
+            if ($this->config->platform == $this::PLATFORM_WEBEX
+                    && isset($recordingdata) && !empty($recordingdata->playbackUrl)) {
                 $recordingurl = '<a target="_blank" href="' . $recordingdata->playbackUrl . '">לחץ/י כאן לצפייה בהקלטה</a>';
-            }
-
-            // Zoom.
-            if ($this->config->platform == $this::PLATFORM_ZOOM) {
+            } else if ($this->config->platform == $this::PLATFORM_ZOOM
+                    && isset($recordingdata) && !empty($recordingdata->play_url)) {
                 $recordingurl = '<a target="_blank" href="' . $recordingdata->play_url . '">לחץ/י כאן לצפייה בהקלטה</a>';
+            } else if ($this->config->platform == $this::PLATFORM_TEAMS) {
+                // Teams: OneDrive URL for playback without download.
+                $teamsurl = $this->get_meeting($meeting) . '?web=1&csf=1';
+                $recordingurl = '<a href="' . $teamsurl . '">לחץ/י כאן לצפיה ישירה בהקלטה</a>';
             }
 
-            $moduledata->introeditor['text'] .= $recordingurl;
-
-            // Teams using onedrive url to display video without download.
-            if ($this->config->platform == $this::PLATFORM_TEAMS) {
-                $recordingurl = $this->get_meeting($meeting);
-                $recordingurl = $recordingurl . '?web=1&csf=1';
-                $moduledata->introeditor['text'] .= '<a href="' . $recordingurl . '">לחץ/י כאן לצפיה ישירה בהקלטה</a>';
+            if ($recordingurl !== '') {
+                $moduledata->introeditor['text'] .= $recordingurl;
             }
-
-        } else {
-            $moduledata->identifier = $meeting->streamid;
         }
 
         if ($this->config->hidetopic) {
