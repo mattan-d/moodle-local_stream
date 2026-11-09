@@ -375,3 +375,57 @@ function local_stream_before_footer(): string {
 
     return '';
 }
+
+/**
+ * Preferences teachers may set for their own recording embedding.
+ *
+ * @return array
+ */
+function local_stream_user_preferences(): array {
+    return \local_stream\embed_preferences::definitions();
+}
+
+/**
+ * Add Stream embedding preferences to the user preferences page.
+ *
+ * @param navigation_node $parentnode
+ * @param stdClass $user
+ * @param context_user $context
+ * @param stdClass $course
+ * @param context_course $coursecontext
+ * @return void
+ */
+function local_stream_extend_navigation_user_settings(navigation_node $parentnode, stdClass $user,
+        context_user $context, stdClass $course, context_course $coursecontext) {
+    global $PAGE, $USER;
+
+    $onpreferencepage = $PAGE->url->compare(new moodle_url('/user/preferences.php'), URL_MATCH_BASE);
+    $onstreampage = $PAGE->url->compare(new moodle_url('/local/stream/preferences.php'), URL_MATCH_BASE);
+    if (!$onpreferencepage && !$onstreampage) {
+        return;
+    }
+
+    if (!\local_stream\embed_preferences::user_can_have_preferences((int) $user->id)) {
+        return;
+    }
+    if ((int) $USER->id !== (int) $user->id
+            && !has_capability('moodle/user:editprofile', $context)) {
+        return;
+    }
+
+    $url = new moodle_url('/local/stream/preferences.php', ['userid' => $user->id]);
+    $stream = $parentnode->add(
+            get_string('streampreferences', 'local_stream'),
+            null,
+            navigation_node::TYPE_CONTAINER,
+            null,
+            'local_stream_preferences'
+    );
+    $stream->add(
+            get_string('embedpreferences', 'local_stream'),
+            $url,
+            navigation_node::TYPE_SETTING,
+            null,
+            'local_stream_embed_preferences'
+    );
+}

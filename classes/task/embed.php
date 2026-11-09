@@ -63,23 +63,25 @@ class embed extends \core\task\scheduled_task {
                         'timecreated DESC', '*', '0',
                         '100');
 
-        // Type-base grouping.
-        if ($help->config->basedgrouping) {
-            $uniquemeetings = [];
-            $uuids = [];
-            foreach ($meetings as $meeting) {
-                $meetingdata = json_decode($meeting->meetingdata, true);
-                if (isset($meetingdata['uuid']) && !in_array($meetingdata['uuid'], $uuids)) {
-                    $uuids[] = $meetingdata['uuid'];
-                    $uniquemeetings[] = $meeting;
-                } else {
-                    $meeting->embedded = 5;
-                    $DB->update_record('local_stream_rec', $meeting);
-                }
+        // One recording type per meeting, for hosts whose embedding preference enables it.
+        $kept = [];
+        $uuids = [];
+        foreach ($meetings as $meeting) {
+            $help->apply_embed_preferences_for_email($meeting->email ?? '');
+            if (empty($help->config->basedgrouping)) {
+                $kept[] = $meeting;
+                continue;
             }
-
-            $meetings = $uniquemeetings;
+            $meetingdata = json_decode($meeting->meetingdata, true);
+            if (isset($meetingdata['uuid']) && !in_array($meetingdata['uuid'], $uuids)) {
+                $uuids[] = $meetingdata['uuid'];
+                $kept[] = $meeting;
+            } else {
+                $meeting->embedded = 5;
+                $DB->update_record('local_stream_rec', $meeting);
+            }
         }
+        $meetings = $kept;
 
         if (!$meetings) {
             mtrace('There are no recordings to be embedded.');

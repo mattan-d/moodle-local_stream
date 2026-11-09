@@ -44,6 +44,13 @@ class local_stream_help {
     public $config;
 
     /**
+     * Site configuration before a per-teacher embedding override is applied.
+     *
+     * @var stdClass|null
+     */
+    private $embedconfigbaseline = null;
+
+    /**
      * @var cache Cache object for the streamdata
      */
     public $cache;
@@ -175,6 +182,36 @@ class local_stream_help {
     public function __construct() {
         $this->config = get_config('local_stream');
         $this->cache = cache::make('local_stream', 'streamdata');
+    }
+
+    /**
+     * Use this host's embedding preferences for subsequent config reads.
+     *
+     * Keys the teacher has not set stay at the site value. Other plugin settings are unchanged.
+     *
+     * @param string|null $email Meeting host email.
+     * @return void
+     */
+    public function apply_embed_preferences_for_email(?string $email): void {
+        if ($this->embedconfigbaseline === null) {
+            $this->embedconfigbaseline = $this->config;
+        }
+        $this->config = clone $this->embedconfigbaseline;
+        $userid = \local_stream\embed_preferences::userid_by_email($email);
+        if ($userid) {
+            \local_stream\embed_preferences::apply_to_config($this->config, $userid);
+        }
+    }
+
+    /**
+     * Visibility flag for a new recording, using the host's hide-from-students preference.
+     *
+     * @param string|null $email Meeting host email.
+     * @return int 1 visible, 0 hidden.
+     */
+    public function recording_visible_for_host(?string $email): int {
+        $this->apply_embed_preferences_for_email($email);
+        return empty($this->config->hidefromstudents) ? 1 : 0;
     }
 
     /**
@@ -1263,7 +1300,7 @@ class local_stream_help {
                 $newrecording->meetingdata = json_encode($meeting);
                 $newrecording->recordingdata = json_encode($recording);
                 $newrecording->timecreated = time();
-                $newrecording->visible = ($this->config->hidefromstudents ? 0 : 1);
+                $newrecording->visible = $this->recording_visible_for_host($newrecording->email ?? '');
 
                 // Publish immediately.
                 if ($this->config->storage == $this::STORAGE_NODOWNLOAD) {
@@ -1359,7 +1396,7 @@ class local_stream_help {
             $newrecording->meetingdata = json_encode($meeting);
             $newrecording->recordingdata = json_encode($recording);
             $newrecording->timecreated = time();
-            $newrecording->visible = ($this->config->hidefromstudents ? 0 : 1);
+            $newrecording->visible = $this->recording_visible_for_host($newrecording->email ?? '');
 
             // Publish immediately.
             if ($this->config->storage == $this::STORAGE_NODOWNLOAD) {
@@ -1455,7 +1492,6 @@ class local_stream_help {
             $newrecording->meetingdata = json_encode($meeting);
             $newrecording->recordingdata = json_encode($meeting);
             $newrecording->timecreated = time();
-            $newrecording->visible = ($this->config->hidefromstudents ? 0 : 1);
 
             $module = $DB->get_record('modules', ['name' => 'lti']);
             if ($module && isset($meeting->instanceid)) {
@@ -1474,6 +1510,8 @@ class local_stream_help {
                     }
                 }
             }
+
+            $newrecording->visible = $this->recording_visible_for_host($newrecording->email ?? '');
 
             // Publish immediately.
             if ($this->config->storage == $this::STORAGE_NODOWNLOAD) {
@@ -1906,6 +1944,8 @@ class local_stream_help {
     public function add_module($meeting) {
         global $DB;
 
+        $this->apply_embed_preferences_for_email($meeting->email ?? '');
+
         $meeting->idnumber = 'meeting-' . $meeting->meetingid;
 
         // For Zoom platform, handle mod_stream collection mode
@@ -2026,6 +2066,8 @@ class local_stream_help {
      */
     public function update_module($meeting) {
         global $DB;
+
+        $this->apply_embed_preferences_for_email($meeting->email ?? '');
 
         if ($meeting->moduleid) {
             $cm = get_coursemodule_from_instance('stream', $meeting->moduleid);
@@ -3073,7 +3115,7 @@ class local_stream_help {
         $newrecording->duration = $duration;
         $newrecording->endtime = $currdate;
         $newrecording->embedded = 0;
-        $newrecording->visible = ($this->config->hidefromstudents ? 0 : 1);
+        $newrecording->visible = $this->recording_visible_for_host($newrecording->email ?? '');
 
         $rd = [
                 'download_url' => $download,

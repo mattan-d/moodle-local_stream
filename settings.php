@@ -217,8 +217,9 @@ if ($hassiteconfig) {
     $settings->hide_if('local_stream/zoom_auto_license_roles', 'local_stream/platform', 'in', '1|2|3');
     $settings->hide_if('local_stream/zoom_auto_license_roles', 'local_stream/zoom_auto_license_teachers_first_login', 'eq', 0);
 
-    // Embedding.
-    $settings->add(new admin_setting_heading('embeddingsettings', get_string('embeddingsettings', 'local_stream'), ''));
+    // Embedding. Teachers can override these under Preferences → Stream preferences.
+    $settings->add(new admin_setting_heading('embeddingsettings', get_string('embeddingsettings', 'local_stream'),
+            get_string('embeddingsettings_desc', 'local_stream')));
 
     $settings->add(new admin_setting_configtext('local_stream/prefix',
             get_string('prefix', 'local_stream'), get_string('prefix_desc', 'local_stream'), ''));
