@@ -252,7 +252,17 @@ if ($hassiteconfig) {
             get_string('defaultcollectionmode_desc', 'local_stream'), '1'));
     $settings->hide_if('local_stream/defaultcollectionmode', 'local_stream/platform', 'in', '1|2|3');
 
+    $resetembedurl = new moodle_url('/local/stream/reset_embed_preferences.php');
+    $settings->add(new admin_setting_heading('local_stream/resetembedpreferences',
+            get_string('resetembedpreferences', 'local_stream'),
+            get_string('resetembedpreferences_desc', 'local_stream', $resetembedurl->out(false))));
+
     $ADMIN->add('localstreamfolder', $settings);
+
+    $ADMIN->add('localstreamfolder', new admin_externalpage('local_stream_reset_embed_preferences',
+            get_string('resetembedpreferences', 'local_stream'),
+            new moodle_url('/local/stream/reset_embed_preferences.php'),
+            'moodle/site:config', true));
 
     $ADMIN->add('localstreamfolder', new admin_externalpage('local_stream_question_gen_report',
             get_string('qgenreporttitle', 'local_stream'),

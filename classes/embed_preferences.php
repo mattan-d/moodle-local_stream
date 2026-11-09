@@ -409,4 +409,54 @@ class embed_preferences {
             }
         }
     }
+
+    /**
+     * Preference names stored for embedding overrides.
+     *
+     * @return string[]
+     */
+    public static function preference_names(): array {
+        $names = [];
+        foreach (self::keys() as $key) {
+            $names[] = self::preference_name($key);
+        }
+        return $names;
+    }
+
+    /**
+     * Users who saved at least one embedding preference.
+     *
+     * @return int
+     */
+    public static function count_users_with_preferences(): int {
+        global $DB;
+
+        [$insql, $params] = $DB->get_in_or_equal(self::preference_names(), SQL_PARAMS_NAMED);
+        return (int) $DB->count_records_sql(
+                "SELECT COUNT(DISTINCT userid) FROM {user_preferences} WHERE name {$insql}",
+                $params
+        );
+    }
+
+    /**
+     * Delete every teacher's embedding preference so the site settings apply again.
+     *
+     * @return int Number of users whose preferences were removed.
+     */
+    public static function reset_all(): int {
+        global $DB;
+
+        $names = self::preference_names();
+        [$insql, $params] = $DB->get_in_or_equal($names, SQL_PARAMS_NAMED);
+        $userids = $DB->get_fieldset_sql(
+                "SELECT DISTINCT userid FROM {user_preferences} WHERE name {$insql}",
+                $params
+        );
+        foreach ($userids as $userid) {
+            foreach ($names as $name) {
+                unset_user_preference($name, (int) $userid);
+            }
+        }
+        return count($userids);
+    }
 }
