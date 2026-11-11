@@ -154,11 +154,16 @@ class embed_preferences {
     public static function can_edit_user(int $userid): bool {
         global $USER;
 
+        if (!isloggedin() || isguestuser()) {
+            return false;
+        }
         if (!self::user_can_have_preferences($userid)) {
             return false;
         }
+        // Own embedding preferences do not require moodle/user:editownprofile.
+        // Institutions often lock profile editing for teachers synced from an external directory.
         if ((int) $USER->id === $userid) {
-            return has_capability('moodle/user:editownprofile', \context_system::instance());
+            return true;
         }
         $personalcontext = \context_user::instance($userid);
         if (is_siteadmin($userid) && !is_siteadmin($USER)) {

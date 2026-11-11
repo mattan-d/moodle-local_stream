@@ -23,18 +23,43 @@
  */
 
 require_once(__DIR__ . '/../../config.php');
-require_once($CFG->dirroot . '/user/editlib.php');
 require_once($CFG->dirroot . '/local/stream/locallib.php');
 
 use local_stream\embed_preferences;
 use local_stream\form\embed_preferences_form;
 
-$userid = optional_param('userid', $USER->id, PARAM_INT);
+$userid = optional_param('userid', 0, PARAM_INT);
 
-[$user, $course] = useredit_setup_preference_page($userid, SITEID);
+if (!isloggedin() || isguestuser()) {
+    if (empty($SESSION->wantsurl)) {
+        $SESSION->wantsurl = (new moodle_url('/user/preferences.php'))->out(false);
+    }
+    redirect(get_login_url());
+}
+
+if (!$userid) {
+    $userid = (int) $USER->id;
+}
+
+$user = core_user::get_user($userid, '*', MUST_EXIST);
+if ($user->deleted || isguestuser($user) || !core_user::is_real_user($user->id)) {
+    throw new moodle_exception('invaliduser', 'error');
+}
+if (is_mnet_remote_user($user)) {
+    throw new moodle_exception('mnetdisable');
+}
 
 if (!embed_preferences::can_edit_user((int) $user->id)) {
     throw new moodle_exception('cannotedituserpreferences', 'error');
+}
+
+$PAGE->set_context(context_user::instance($user->id));
+$PAGE->set_pagelayout('admin');
+$PAGE->add_body_class('limitedwidth');
+if ((int) $USER->id !== (int) $user->id) {
+    $PAGE->navigation->extend_for_user($user);
+} else if ($node = $PAGE->navigation->find('myprofile', navigation_node::TYPE_ROOTNODE)) {
+    $node->force_open();
 }
 
 $url = new moodle_url('/local/stream/preferences.php', ['userid' => $user->id]);
