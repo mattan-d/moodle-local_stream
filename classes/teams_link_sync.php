@@ -46,8 +46,11 @@ class teams_link_sync {
     /** @var int */
     private $cutoff;
 
-    /** @var array<int, array<int, array{table:string,id:int,text:string,identifier:string}>> */
+    /** @var array<int, array<int, array{table:string,id:int,text:string,identifier:string,name:string}>> */
     private $coursetexts = [];
+
+    /** @var array<string, int> Recordings already placed in this run, keyed by course and identity. */
+    private $placed = [];
 
     /** @var array<string, int> */
     private $counts = [
@@ -181,31 +184,37 @@ class teams_link_sync {
             }
         }
 
+        $this->help->apply_embed_preferences_for_email($rec->email ?? '');
         $serverurl = $this->server_url($rec);
         $norm = self::normalize_link($serverurl);
         $fileid = trim((string) ($rec->fileid ?? ''));
         $streamid = (int) ($rec->streamid ?? 0);
+        $topic = (string) ($rec->topic ?? '');
 
-        $owned = $this->owned_stream($rec, $courseid);
-        if ($owned && $this->stream_matches($owned, $norm, $fileid, $streamid)) {
-            $this->mark_embedded($rec, $courseid, (int) $owned->id, 'already matches course activity');
+        $already = $this->placed_instance($courseid, $rec, $norm);
+        if ($already !== null) {
+            $this->mark_embedded($rec, $courseid, $already, 'duplicate of a recording already placed in this run');
             return;
         }
 
-        if ($owned) {
-            if ($this->update_stream_link($owned, $serverurl, $streamid)) {
-                $this->mark_embedded($rec, $courseid, (int) $owned->id, 'updated the course link', true);
-            } else {
-                $this->skip($rec, 'course activity #' . $owned->id . ' has no playback link to update');
-            }
+        $existing = self::find_existing_stream($this->help, $rec);
+        if ($existing) {
+            $this->reuse_stream($rec, $existing, $serverurl, $norm, $fileid, $streamid, $courseid);
             return;
         }
 
-        $hit = $this->find_course_hit($courseid, $norm, $fileid, $streamid);
+        $hit = $this->find_course_hit($courseid, $norm, $fileid, $streamid, $topic);
         if ($hit) {
-            $moduleid = $hit['table'] === 'stream' ? (int) $hit['id'] : 0;
+            if ($hit['table'] === 'stream') {
+                $stream = $DB->get_record('stream', ['id' => $hit['id']]);
+                if ($stream) {
+                    $this->reuse_stream($rec, $stream, $serverurl, $norm, $fileid, $streamid, $courseid);
+                    return;
+                }
+            }
             $where = $hit['table'] . ' #' . $hit['id'];
-            $this->mark_embedded($rec, $courseid, $moduleid, 'link already present in ' . $where);
+            $this->mark_embedded($rec, $courseid, 0, 'link already present in ' . $where);
+            $this->remember_placed($courseid, $rec, $norm, 0);
             return;
         }
 
@@ -236,15 +245,47 @@ class teams_link_sync {
 
         if ($this->dryrun) {
             $this->counts['embedded']++;
+            $this->remember_placed($courseid, $rec, $norm, 0);
             return;
         }
 
-        $after = $DB->get_record('local_stream_rec', ['id' => $rec->id], 'id, embedded', MUST_EXIST);
+        $after = $DB->get_record('local_stream_rec', ['id' => $rec->id], 'id, embedded, moduleid', MUST_EXIST);
         if ((int) $after->embedded === 1) {
             $this->counts['embedded']++;
+            $this->remember_placed($courseid, $rec, $norm, (int) $after->moduleid);
         } else {
             $this->counts['failed']++;
         }
+    }
+
+    /**
+     * Keep a single course activity for this recording and point it at the server link.
+     *
+     * @param \stdClass $rec
+     * @param \stdClass $stream
+     * @param string $serverurl
+     * @param string $norm
+     * @param string $fileid
+     * @param int $streamid
+     * @param int $courseid
+     * @return void
+     */
+    private function reuse_stream(
+            \stdClass $rec,
+            \stdClass $stream,
+            string $serverurl,
+            string $norm,
+            string $fileid,
+            int $streamid,
+            int $courseid
+    ): void {
+        $updated = false;
+        if (!$this->stream_matches($stream, $norm, $fileid, $streamid)) {
+            $updated = $this->update_stream_link($stream, $serverurl, $streamid);
+        }
+        $reason = $updated ? 'updated the existing course activity' : 'already in course, no second activity';
+        $this->mark_embedded($rec, $courseid, (int) $stream->id, $reason, $updated);
+        $this->remember_placed($courseid, $rec, $norm, (int) $stream->id);
     }
 
     /**
@@ -273,21 +314,6 @@ class teams_link_sync {
         }
 
         return 0;
-    }
-
-    /**
-     * @param \stdClass $rec
-     * @param int $courseid
-     * @return \stdClass|null
-     */
-    private function owned_stream(\stdClass $rec, int $courseid): ?\stdClass {
-        global $DB;
-
-        if (empty($rec->moduleid)) {
-            return null;
-        }
-        $stream = $DB->get_record('stream', ['id' => $rec->moduleid, 'course' => $courseid]);
-        return $stream ?: null;
     }
 
     /**
@@ -324,12 +350,13 @@ class teams_link_sync {
      * @param string $norm
      * @param string $fileid
      * @param int $streamid
-     * @return array{table:string,id:int,text:string,identifier:string}|null
+     * @param string $topic
+     * @return array{table:string,id:int,text:string,identifier:string,name:string}|null
      */
-    private function find_course_hit(int $courseid, string $norm, string $fileid, int $streamid): ?array {
+    private function find_course_hit(int $courseid, string $norm, string $fileid, int $streamid, string $topic): ?array {
         $fallback = null;
         foreach ($this->course_texts($courseid) as $item) {
-            if (!$this->item_matches($item, $norm, $fileid, $streamid)) {
+            if (!$this->item_matches($item, $norm, $fileid, $streamid, $topic)) {
                 continue;
             }
             if ($item['table'] === 'stream') {
@@ -347,9 +374,10 @@ class teams_link_sync {
      * @param string $norm
      * @param string $fileid
      * @param int $streamid
+     * @param string $topic
      * @return bool
      */
-    private function item_matches(array $item, string $norm, string $fileid, int $streamid): bool {
+    private function item_matches(array $item, string $norm, string $fileid, int $streamid, string $topic = ''): bool {
         if ($streamid > 0 && $item['table'] === 'stream'
                 && in_array((string) $streamid, stream_parse_identifiers($item['identifier']), true)) {
             return true;
@@ -358,6 +386,13 @@ class teams_link_sync {
             return true;
         }
         if (strlen($fileid) >= 12 && stripos($item['text'], $fileid) !== false) {
+            return true;
+        }
+        $prefix = (string) ($this->help->config->prefix ?? '');
+        if ($item['table'] === 'stream' && self::same_recording_name($item['name'] ?? '', $topic, $prefix)) {
+            return true;
+        }
+        if ($topic !== '' && self::text_has_filename($item['text'], $topic)) {
             return true;
         }
         return false;
@@ -398,22 +433,33 @@ class teams_link_sync {
             $href = $this->playback_href($serverurl);
             if (!self::text_has_url($intro, self::normalize_link($serverurl))) {
                 list($intro, $replaced) = self::replace_first_recording_url($intro, $href);
-                if (!$replaced) {
+                // A second anchor would show the recording twice. Replace the existing one, or write the first.
+                if (!$replaced && !self::text_has_recording_url($intro)) {
                     $anchor = '<a href="' . htmlspecialchars($href, ENT_QUOTES) . '">לחץ/י כאן לצפיה ישירה בהקלטה</a>';
                     $intro = trim($intro) === '' ? $anchor : ($intro . '<br>' . $anchor);
+                    $replaced = true;
                 }
-                $stream->intro = $intro;
-                $stream->introformat = FORMAT_HTML;
-                $changed = true;
+                if ($replaced) {
+                    $stream->intro = $intro;
+                    $stream->introformat = FORMAT_HTML;
+                    $changed = true;
+                }
             }
         }
 
-        if ($streamid > 0 && !in_array((string) $streamid, stream_parse_identifiers($stream->identifier ?? ''), true)) {
-            $ids = stream_parse_identifiers($stream->identifier ?? '');
-            $ids[] = (string) $streamid;
-            $stream->identifier = implode(',', $ids);
-            $stream->video_order = stream_sync_video_order($stream->identifier, $stream->video_order ?? '[]');
-            $changed = true;
+        if ($streamid > 0) {
+            $ids = array_values(array_filter(
+                    stream_parse_identifiers($stream->identifier ?? ''),
+                    static function(string $id): bool {
+                        return $id !== 'external';
+                    }
+            ));
+            // Leave an activity that already plays a different video. Adding the id would show two recordings.
+            if ($ids === []) {
+                $stream->identifier = (string) $streamid;
+                $stream->video_order = stream_sync_video_order($stream->identifier, $stream->video_order ?? '[]');
+                $changed = true;
+            }
         }
 
         if (!$changed) {
@@ -474,7 +520,7 @@ class teams_link_sync {
 
     /**
      * @param int $courseid
-     * @return array<int, array{table:string,id:int,text:string,identifier:string}>
+     * @return array<int, array{table:string,id:int,text:string,identifier:string,name:string}>
      */
     private function course_texts(int $courseid): array {
         global $DB;
@@ -485,12 +531,13 @@ class teams_link_sync {
 
         $items = [];
         if ($DB->get_manager()->table_exists('stream')) {
-            foreach ($DB->get_records('stream', ['course' => $courseid], '', 'id, intro, identifier') as $row) {
+            foreach ($DB->get_records('stream', ['course' => $courseid], '', 'id, name, intro, identifier') as $row) {
                 $items[] = [
                         'table' => 'stream',
                         'id' => (int) $row->id,
                         'text' => (string) ($row->intro ?? ''),
                         'identifier' => (string) ($row->identifier ?? ''),
+                        'name' => (string) ($row->name ?? ''),
                 ];
             }
         }
@@ -508,6 +555,7 @@ class teams_link_sync {
                         'id' => (int) $row->id,
                         'text' => $text,
                         'identifier' => '',
+                        'name' => '',
                 ];
             }
         }
@@ -518,6 +566,7 @@ class teams_link_sync {
                         'id' => (int) $row->id,
                         'text' => (string) ($row->summary ?? ''),
                         'identifier' => '',
+                        'name' => '',
                 ];
             }
         }
@@ -597,7 +646,10 @@ class teams_link_sync {
         return strpos($url, 'sharepoint') !== false
                 || strpos($url, '1drv.ms') !== false
                 || strpos($url, 'onedrive') !== false
-                || strpos($url, '/watch/') !== false;
+                || strpos($url, '/watch/') !== false
+                || strpos($url, 'teams.microsoft') !== false
+                || strpos($url, 'microsoftstream') !== false
+                || strpos($url, 'stream.microsoft') !== false;
     }
 
     /**
@@ -637,6 +689,245 @@ class teams_link_sync {
                 $html
         );
         return [$updated ?? $html, $found];
+    }
+
+    /**
+     * Stream activity already showing this Teams recording, if one exists in the course.
+     *
+     * @param \local_stream_help $help
+     * @param \stdClass $rec
+     * @return \stdClass|null
+     */
+    public static function find_existing_stream(\local_stream_help $help, \stdClass $rec): ?\stdClass {
+        global $CFG, $DB;
+        require_once($CFG->dirroot . '/mod/stream/lib.php');
+
+        $help->apply_embed_preferences_for_email($rec->email ?? '');
+        $courseid = (int) ($rec->course ?? 0);
+        if ($courseid <= 0) {
+            $parsed = $help->teams_course_data($rec->topic ?? '');
+            $courseid = (int) ($parsed['courseid'] ?? 0);
+            if ($courseid <= 0 || !$DB->record_exists('course', ['id' => $courseid])) {
+                return null;
+            }
+        }
+
+        if (!empty($rec->moduleid)) {
+            $owned = $DB->get_record('stream', ['id' => $rec->moduleid, 'course' => $courseid]);
+            if ($owned) {
+                return $owned;
+            }
+        }
+
+        $streams = $DB->get_records('stream', ['course' => $courseid]);
+        if (!$streams) {
+            return null;
+        }
+
+        $fileid = trim((string) ($rec->fileid ?? ''));
+        $streamid = (int) ($rec->streamid ?? 0);
+        $serverurl = $help->get_meeting($rec);
+        if ($serverurl instanceof \moodle_url) {
+            $serverurl = $serverurl->out(false);
+        }
+        $serverurl = is_string($serverurl) ? $serverurl : '';
+        $norm = self::normalize_link($serverurl);
+        $topic = (string) ($rec->topic ?? '');
+        $prefix = (string) ($help->config->prefix ?? '');
+
+        $matches = [];
+        foreach ($streams as $stream) {
+            $intro = (string) ($stream->intro ?? '');
+            $same = false;
+            if ($streamid > 0 && in_array((string) $streamid, stream_parse_identifiers($stream->identifier ?? ''), true)) {
+                $same = true;
+            } else if ($norm !== '' && self::text_has_url($intro, $norm)) {
+                $same = true;
+            } else if (strlen($fileid) >= 12 && stripos($intro, $fileid) !== false) {
+                $same = true;
+            } else if (self::same_recording_name((string) ($stream->name ?? ''), $topic, $prefix)) {
+                $same = true;
+            } else if (self::text_has_filename($intro, $topic)) {
+                $same = true;
+            }
+            if ($same) {
+                $matches[(int) $stream->id] = $stream;
+            }
+        }
+
+        if (strlen($fileid) >= 12) {
+            $where = $DB->sql_compare_text('fileid', 4000) . ' = :fileid AND course = :course AND moduleid > 0';
+            $params = ['fileid' => $fileid, 'course' => $courseid];
+            if (!empty($rec->id)) {
+                $where .= ' AND id <> :id';
+                $params['id'] = (int) $rec->id;
+            }
+            $siblings = $DB->get_records_select('local_stream_rec', $where, $params, 'id ASC', 'id, moduleid');
+            foreach ($siblings as $sibling) {
+                $moduleid = (int) $sibling->moduleid;
+                if (isset($streams[$moduleid])) {
+                    $matches[$moduleid] = $streams[$moduleid];
+                }
+            }
+        }
+
+        if (!$matches) {
+            return null;
+        }
+        ksort($matches);
+        $first = reset($matches);
+        if (count($matches) > 1) {
+            mtrace('Teams: recording #' . (int) ($rec->id ?? 0) . ' matches ' . count($matches)
+                    . ' activities in course #' . $courseid . '; reusing stream #' . $first->id . '.');
+        }
+        return $first;
+    }
+
+    /**
+     * Exact activity-name match for a Teams file, ignoring the embed prefix and a trailing date.
+     *
+     * Generic titles are ignored so two different meetings with the same short name stay separate.
+     *
+     * @param string $activityname
+     * @param string $topic Recording file name.
+     * @param string $prefix Site or teacher embed prefix.
+     * @return bool
+     */
+    public static function same_recording_name(string $activityname, string $topic, string $prefix = ''): bool {
+        $topic = self::canonical_recording_name($topic, '');
+        if ($topic === '' || mb_strlen($topic) < 12) {
+            return false;
+        }
+        if (mb_strlen($topic) < 24 && mb_strpos($topic, 'קורס') === false) {
+            return false;
+        }
+        $name = self::canonical_recording_name($activityname, $prefix);
+        if ($name === $topic) {
+            return true;
+        }
+        // The embedder appends one " (date)" after the file name. Do not strip parentheses that belong to the title.
+        $withoutdate = preg_replace('/\s*\([^)]{1,80}\)\s*$/u', '', $name);
+        $withoutdate = trim((string) preg_replace('/\.(mp4|mov|webm|mkv|m4v)$/iu', '', $withoutdate));
+        return $withoutdate !== $name && $withoutdate === $topic;
+    }
+
+    /**
+     * Activity title reduced to the recording file name.
+     *
+     * @param string $name
+     * @param string $prefix Embed prefix to remove from the front.
+     * @return string
+     */
+    private static function canonical_recording_name(string $name, string $prefix): string {
+        $name = self::norm_name($name);
+        $prefix = self::norm_name($prefix);
+        if ($prefix !== '' && mb_strpos($name, $prefix . ' ') === 0) {
+            $name = trim(mb_substr($name, mb_strlen($prefix)));
+        }
+        $name = preg_replace('/\.(mp4|mov|webm|mkv|m4v)$/iu', '', $name);
+        return trim($name);
+    }
+
+    /**
+     * @param string $name
+     * @return string
+     */
+    private static function norm_name(string $name): string {
+        $name = html_entity_decode($name, ENT_QUOTES | ENT_HTML5);
+        $name = preg_replace('/\s+/u', ' ', trim($name));
+        return mb_strtolower($name);
+    }
+
+    /**
+     * @param string $text
+     * @param string $topic
+     * @return bool
+     */
+    private static function text_has_filename(string $text, string $topic): bool {
+        $wanted = self::norm_name(preg_replace('/\.(mp4|mov|webm|mkv|m4v)$/iu', '', $topic));
+        if ($wanted === '' || mb_strlen($wanted) < 12) {
+            return false;
+        }
+        if (mb_strlen($wanted) < 24 && mb_strpos($wanted, 'קורס') === false) {
+            return false;
+        }
+        foreach (self::extract_urls($text) as $url) {
+            $parts = parse_url($url);
+            $base = isset($parts['path']) ? basename(rawurldecode($parts['path'])) : '';
+            $base = self::norm_name(preg_replace('/\.(mp4|mov|webm|mkv|m4v)$/iu', '', $base));
+            if ($base !== '' && $base === $wanted) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @param string $text
+     * @return bool
+     */
+    private static function text_has_recording_url(string $text): bool {
+        foreach (self::extract_urls($text) as $url) {
+            if (self::is_recording_url($url)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @param int $courseid
+     * @param \stdClass $rec
+     * @param string $norm
+     * @return int|null Stream instance already used in this run, or null when this recording is new.
+     */
+    private function placed_instance(int $courseid, \stdClass $rec, string $norm): ?int {
+        foreach ($this->identity_keys($courseid, $rec, $norm) as $key) {
+            if (array_key_exists($key, $this->placed)) {
+                return (int) $this->placed[$key];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @param int $courseid
+     * @param \stdClass $rec
+     * @param string $norm
+     * @param int $streaminstance
+     * @return void
+     */
+    private function remember_placed(int $courseid, \stdClass $rec, string $norm, int $streaminstance): void {
+        foreach ($this->identity_keys($courseid, $rec, $norm) as $key) {
+            if (!array_key_exists($key, $this->placed)) {
+                $this->placed[$key] = $streaminstance;
+            }
+        }
+    }
+
+    /**
+     * @param int $courseid
+     * @param \stdClass $rec
+     * @param string $norm
+     * @return string[]
+     */
+    private function identity_keys(int $courseid, \stdClass $rec, string $norm): array {
+        $keys = [];
+        $fileid = trim((string) ($rec->fileid ?? ''));
+        if (strlen($fileid) >= 12) {
+            $keys[] = $courseid . '|file|' . $fileid;
+        }
+        if ($norm !== '') {
+            $keys[] = $courseid . '|url|' . $norm;
+        }
+        if ((int) ($rec->streamid ?? 0) > 0) {
+            $keys[] = $courseid . '|stream|' . (int) $rec->streamid;
+        }
+        $topic = self::norm_name(preg_replace('/\.(mp4|mov|webm|mkv|m4v)$/iu', '', (string) ($rec->topic ?? '')));
+        if ($topic !== '' && (mb_strlen($topic) >= 24 || mb_strpos($topic, 'קורס') !== false) && mb_strlen($topic) >= 12) {
+            $keys[] = $courseid . '|name|' . $topic;
+        }
+        return $keys;
     }
 
     /**

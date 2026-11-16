@@ -56,7 +56,9 @@ if ($options['help']) {
 Lists Teams recordings from the server, compares each playback link with links already
 in the course (stream activities, labels, pages, URLs, and section summaries), embeds
 recordings that are missing, and updates a stream activity when its link no longer
-matches the server. Links that exist only in the course are left in place.
+matches the server. A recording already in the course is reused: the script does not
+create a second activity for the same file, link, or recording name. Links that exist
+only in the course are left in place.
 
 The script runs only when local_stream is configured for Teams.
 

@@ -146,40 +146,48 @@ class embed_recording_helper {
                     return;
                 }
                 if ($page = $help->add_module($meeting)) {
-                    $source = $DB->get_record('course_modules', [
-                            'course' => $meeting->course,
-                            'module' => $streammodule->id,
-                            'instance' => $page->id,
-                    ]);
-                    if ($source) {
-                        if ($help->config->platform == $help::PLATFORM_ZOOM && $platformmodule) {
-                            $zoominstance = $DB->get_record('zoom', ['meeting_id' => $meeting->meetingid]);
-                            if ($zoominstance) {
-                                $destination = $DB->get_record('course_modules', [
-                                        'course' => $meeting->course,
-                                        'module' => $platformmodule->id,
-                                        'instance' => $zoominstance->id,
-                                ]);
-                                if ($destination) {
-                                    $section = $DB->get_record('course_sections', [
+                    if (!empty($meeting->reusedexisting)) {
+                        $meeting->moduleid = $page->id;
+                        $meeting->embedded = 1;
+                        $logfn('Reused existing stream activity #' . $page->id
+                                . ' for video #' . $meeting->id . ' in course #' . $meeting->course . '.');
+                    } else {
+                        $source = $DB->get_record('course_modules', [
+                                'course' => $meeting->course,
+                                'module' => $streammodule->id,
+                                'instance' => $page->id,
+                        ]);
+                        if ($source) {
+                            if ($help->config->platform == $help::PLATFORM_ZOOM && $platformmodule) {
+                                $zoominstance = $DB->get_record('zoom', ['meeting_id' => $meeting->meetingid]);
+                                if ($zoominstance) {
+                                    $destination = $DB->get_record('course_modules', [
                                             'course' => $meeting->course,
-                                            'id' => $destination->section,
+                                            'module' => $platformmodule->id,
+                                            'instance' => $zoominstance->id,
                                     ]);
-                                    if ($section) {
-                                        self::apply_embed_order_relative_to_platform($help, $source, $destination, $section);
+                                    if ($destination) {
+                                        $section = $DB->get_record('course_sections', [
+                                                'course' => $meeting->course,
+                                                'id' => $destination->section,
+                                        ]);
+                                        if ($section) {
+                                            self::apply_embed_order_relative_to_platform($help, $source, $destination, $section);
+                                        }
                                     }
                                 }
                             }
+                            $meeting->moduleid = $page->id;
+                            $meeting->embedded = 1;
+                            if ($help->config->platform == $help::PLATFORM_ZOOM) {
+                                $meeting->embedded_at = time();
+                            }
+                            $logfn('NO-PLATFORM: The video with ID #' . $meeting->id
+                                    . ' was embedded in course #' . $meeting->course . '.');
+                        } else {
+                            $meeting->embedded = 2;
+                            $logfn('NO-PLATFORM: stream course module not found for video #' . $meeting->id . '.');
                         }
-                        $meeting->moduleid = $page->id;
-                        $meeting->embedded = 1;
-                        if ($help->config->platform == $help::PLATFORM_ZOOM) {
-                            $meeting->embedded_at = time();
-                        }
-                        $logfn('NO-PLATFORM: The video with ID #' . $meeting->id . ' was embedded in course #' . $meeting->course . '.');
-                    } else {
-                        $meeting->embedded = 2;
-                        $logfn('NO-PLATFORM: stream course module not found for video #' . $meeting->id . '.');
                     }
                 } else {
                     $meeting->embedded = 2;
@@ -206,7 +214,13 @@ class embed_recording_helper {
             }
 
             if ($page = $help->add_module($meeting)) {
-                if (!$platformmodule) {
+                if (!empty($meeting->reusedexisting)) {
+                    $meeting->embedded = 1;
+                    $meeting->course = $platform->course;
+                    $meeting->moduleid = $page->id;
+                    $logfn('Reused existing stream activity #' . $page->id
+                            . ' for video #' . $meeting->id . ' in course #' . $platform->course . '.');
+                } else if (!$platformmodule) {
                     $meeting->embedded = 2;
                     $logfn('Platform module type not configured for video #' . $meeting->id . '.');
                 } else {

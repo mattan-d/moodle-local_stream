@@ -1956,6 +1956,18 @@ class local_stream_help {
 
         $meeting->idnumber = 'meeting-' . $meeting->meetingid;
 
+        // Teams: never add a second course activity for a recording already placed.
+        if ((int) $this->config->platform === self::PLATFORM_TEAMS) {
+            global $CFG;
+            require_once($CFG->dirroot . '/local/stream/classes/teams_link_sync.php');
+            if ($existing = \local_stream\teams_link_sync::find_existing_stream($this, $meeting)) {
+                $meeting->reusedexisting = 1;
+                mtrace('Teams: recording #' . $meeting->id . ' already in course #' . $existing->course
+                        . ' as stream #' . $existing->id . '; not creating another activity.');
+                return (object) ['id' => $existing->id];
+            }
+        }
+
         // For Zoom platform, handle mod_stream collection mode
         if ($this->config->platform == $this::PLATFORM_ZOOM && $meeting->streamid) {
             // Find mod_stream instances with collection_mode=true in the specified course
