@@ -169,6 +169,14 @@ class local_stream_help {
     public $syncemail = '';
 
     /**
+     * Optional override for the Teams listing window, in days.
+     * Null keeps the admin "Days to listing" setting.
+     *
+     * @var int|null
+     */
+    public $teamslistingdays = null;
+
+    /**
      * When true (CLI --recover-trash), try to restore Zoom recordings from the recycle bin.
      *
      * @var bool
@@ -2451,7 +2459,7 @@ class local_stream_help {
      * @return int
      */
     private function teams_listing_cutoff_timestamp() {
-        $days = (int) $this->config->daystolisting;
+        $days = $this->teamslistingdays !== null ? (int) $this->teamslistingdays : (int) $this->config->daystolisting;
         if ($days <= 0) {
             $midnight = strtotime('today midnight');
             return ($midnight !== false) ? $midnight : (time() - 86400);
