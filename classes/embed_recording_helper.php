@@ -51,6 +51,39 @@ class embed_recording_helper {
     }
 
     /**
+     * Course module for an activity instance. Teams links use url; other platforms use stream.
+     *
+     * @param int $courseid
+     * @param int $instanceid
+     * @param string $modname
+     * @param \stdClass|null $streammodule
+     * @return \stdClass|null
+     */
+    protected static function activity_cm(int $courseid, int $instanceid, string $modname, $streammodule): ?\stdClass {
+        global $DB;
+
+        if ($modname === 'stream') {
+            if (empty($streammodule->id)) {
+                return null;
+            }
+            $moduleid = (int) $streammodule->id;
+        } else {
+            $type = $DB->get_record('modules', ['name' => $modname], 'id');
+            if (!$type) {
+                return null;
+            }
+            $moduleid = (int) $type->id;
+        }
+
+        $cm = $DB->get_record('course_modules', [
+                'course' => $courseid,
+                'module' => $moduleid,
+                'instance' => $instanceid,
+        ]);
+        return $cm ?: null;
+    }
+
+    /**
      * Embed one ready recording (same rules as scheduled embed task).
      *
      * @param \local_stream_help $help Plugin helper.
@@ -146,17 +179,14 @@ class embed_recording_helper {
                     return;
                 }
                 if ($page = $help->add_module($meeting)) {
+                    $modname = !empty($meeting->placedmodulename) ? (string) $meeting->placedmodulename : 'stream';
                     if (!empty($meeting->reusedexisting)) {
                         $meeting->moduleid = $page->id;
                         $meeting->embedded = 1;
-                        $logfn('Reused existing stream activity #' . $page->id
+                        $logfn('Reused existing ' . $modname . ' activity #' . $page->id
                                 . ' for video #' . $meeting->id . ' in course #' . $meeting->course . '.');
                     } else {
-                        $source = $DB->get_record('course_modules', [
-                                'course' => $meeting->course,
-                                'module' => $streammodule->id,
-                                'instance' => $page->id,
-                        ]);
+                        $source = self::activity_cm((int) $meeting->course, (int) $page->id, $modname, $streammodule);
                         if ($source) {
                             if ($help->config->platform == $help::PLATFORM_ZOOM && $platformmodule) {
                                 $zoominstance = $DB->get_record('zoom', ['meeting_id' => $meeting->meetingid]);
@@ -214,20 +244,26 @@ class embed_recording_helper {
             }
 
             if ($page = $help->add_module($meeting)) {
+                $modname = !empty($meeting->placedmodulename) ? (string) $meeting->placedmodulename : 'stream';
                 if (!empty($meeting->reusedexisting)) {
                     $meeting->embedded = 1;
                     $meeting->course = $platform->course;
                     $meeting->moduleid = $page->id;
-                    $logfn('Reused existing stream activity #' . $page->id
+                    $logfn('Reused existing ' . $modname . ' activity #' . $page->id
                             . ' for video #' . $meeting->id . ' in course #' . $platform->course . '.');
-                } else if (!$platformmodule) {
+                } else if ($modname === 'stream' && !$platformmodule) {
                     $meeting->embedded = 2;
                     $logfn('Platform module type not configured for video #' . $meeting->id . '.');
                 } else {
-                    $source = $DB->get_record('course_modules',
-                            ['course' => $platform->course, 'module' => $streammodule->id, 'instance' => $page->id]);
-                    $destination = $DB->get_record('course_modules',
-                            ['course' => $platform->course, 'module' => $platformmodule->id, 'instance' => $platform->id]);
+                    $source = self::activity_cm((int) $platform->course, (int) $page->id, $modname, $streammodule);
+                    $destination = null;
+                    if ($platformmodule && !empty($platform->id)) {
+                        $destination = $DB->get_record('course_modules', [
+                                'course' => $platform->course,
+                                'module' => $platformmodule->id,
+                                'instance' => $platform->id,
+                        ]);
+                    }
 
                     $section = null;
                     if ($destination) {

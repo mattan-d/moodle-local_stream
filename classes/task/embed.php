@@ -97,7 +97,7 @@ class embed extends \core\task\scheduled_task {
             $module = $DB->get_record('modules', ['name' => 'lti']);
         }
         $streammodule = $DB->get_record('modules', ['name' => 'stream']);
-        if (!$streammodule) {
+        if (!$streammodule && (int) $help->config->platform !== $help::PLATFORM_TEAMS) {
             mtrace('mod_stream module type not found; cannot embed recordings.');
             return true;
         }

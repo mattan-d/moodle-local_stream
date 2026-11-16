@@ -100,7 +100,6 @@ class teams_link_sync {
         global $CFG, $DB;
 
         require_once($CFG->dirroot . '/course/lib.php');
-        require_once($CFG->dirroot . '/mod/stream/lib.php');
 
         $label = $this->days > 0 ? ('last ' . $this->days . ' day(s)') : 'since today midnight';
         mtrace('Teams link sync: ' . $label . ($this->dryrun ? ' (dry-run)' : '') . '.');
@@ -128,9 +127,6 @@ class teams_link_sync {
 
         $streammodule = $DB->get_record('modules', ['name' => 'stream']);
         $platformmodule = $DB->get_record('modules', ['name' => 'msteams']);
-        if (!$streammodule) {
-            mtrace('mod_stream is not installed; course activities cannot be created.');
-        }
 
         foreach ($recordings as $rec) {
             if (!$this->in_window($rec)) {
@@ -205,10 +201,12 @@ class teams_link_sync {
 
         $hit = $this->find_course_hit($courseid, $norm, $fileid, $streamid, $topic);
         if ($hit) {
-            if ($hit['table'] === 'stream') {
-                $stream = $DB->get_record('stream', ['id' => $hit['id']]);
-                if ($stream) {
-                    $this->reuse_stream($rec, $stream, $serverurl, $norm, $fileid, $streamid, $courseid);
+            if (($hit['table'] === 'url' || $hit['table'] === 'stream')
+                    && $DB->get_manager()->table_exists($hit['table'])) {
+                $activity = $DB->get_record($hit['table'], ['id' => $hit['id']]);
+                if ($activity) {
+                    $activity->modname = $hit['table'];
+                    $this->reuse_stream($rec, $activity, $serverurl, $norm, $fileid, $streamid, $courseid);
                     return;
                 }
             }
@@ -226,11 +224,6 @@ class teams_link_sync {
             $this->skip($rec, $reason);
             return;
         }
-        if (!$streammodule) {
-            $this->fail($rec, 'mod_stream is not installed');
-            return;
-        }
-
         mtrace('#' . $rec->id . ': embedding into course #' . $courseid
                 . ($this->dryrun ? ' (dry-run)' : '') . '.');
         embed_recording_helper::process_single(
@@ -280,7 +273,10 @@ class teams_link_sync {
             int $courseid
     ): void {
         $updated = false;
-        if (!$this->stream_matches($stream, $norm, $fileid, $streamid)) {
+        $modname = $stream->modname ?? 'stream';
+        if ($modname === 'url') {
+            $updated = $this->update_url_link($stream, $serverurl);
+        } else if (!$this->stream_matches($stream, $norm, $fileid, $streamid)) {
             $updated = $this->update_stream_link($stream, $serverurl, $streamid);
         }
         $reason = $updated ? 'updated the existing course activity' : 'already in course, no second activity';
@@ -296,9 +292,9 @@ class teams_link_sync {
         global $DB;
 
         if (!empty($rec->moduleid)) {
-            $stream = $DB->get_record('stream', ['id' => $rec->moduleid], 'id, course');
-            if ($stream && $DB->record_exists('course', ['id' => $stream->course])) {
-                return (int) $stream->course;
+            $linked = self::linked_activity($this->help, (int) $rec->moduleid, (int) $rec->course);
+            if ($linked && $DB->record_exists('course', ['id' => $linked->course])) {
+                return (int) $linked->course;
             }
         }
 
@@ -379,7 +375,7 @@ class teams_link_sync {
      */
     private function item_matches(array $item, string $norm, string $fileid, int $streamid, string $topic = ''): bool {
         if ($streamid > 0 && $item['table'] === 'stream'
-                && in_array((string) $streamid, stream_parse_identifiers($item['identifier']), true)) {
+                && in_array((string) $streamid, self::video_ids($item['identifier']), true)) {
             return true;
         }
         if ($norm !== '' && self::text_has_url($item['text'], $norm)) {
@@ -447,9 +443,9 @@ class teams_link_sync {
             }
         }
 
-        if ($streamid > 0) {
+        if ($streamid > 0 && $DB->get_manager()->field_exists('stream', 'identifier')) {
             $ids = array_values(array_filter(
-                    stream_parse_identifiers($stream->identifier ?? ''),
+                    self::video_ids($stream->identifier ?? ''),
                     static function(string $id): bool {
                         return $id !== 'external';
                     }
@@ -457,7 +453,11 @@ class teams_link_sync {
             // Leave an activity that already plays a different video. Adding the id would show two recordings.
             if ($ids === []) {
                 $stream->identifier = (string) $streamid;
-                $stream->video_order = stream_sync_video_order($stream->identifier, $stream->video_order ?? '[]');
+                $order = json_encode([(string) $streamid]);
+                if (function_exists('stream_sync_video_order')) {
+                    $order = stream_sync_video_order($stream->identifier, $stream->video_order ?? '[]');
+                }
+                $stream->video_order = $order;
                 $changed = true;
             }
         }
@@ -470,6 +470,7 @@ class teams_link_sync {
             return true;
         }
 
+        unset($stream->modname);
         $DB->update_record('stream', $stream);
         rebuild_course_cache($stream->course, true);
         unset($this->coursetexts[(int) $stream->course]);
@@ -692,15 +693,17 @@ class teams_link_sync {
     }
 
     /**
-     * Stream activity already showing this Teams recording, if one exists in the course.
+     * Course activity already showing this Teams recording.
+     *
+     * URL activities are the normal placement. An older mod_stream activity is reused when one exists,
+     * so a second activity is not created. mod_stream does not have to be installed.
      *
      * @param \local_stream_help $help
      * @param \stdClass $rec
-     * @return \stdClass|null
+     * @return \stdClass|null Row with modname url or stream.
      */
     public static function find_existing_stream(\local_stream_help $help, \stdClass $rec): ?\stdClass {
-        global $CFG, $DB;
-        require_once($CFG->dirroot . '/mod/stream/lib.php');
+        global $DB;
 
         $help->apply_embed_preferences_for_email($rec->email ?? '');
         $courseid = (int) ($rec->course ?? 0);
@@ -713,15 +716,10 @@ class teams_link_sync {
         }
 
         if (!empty($rec->moduleid)) {
-            $owned = $DB->get_record('stream', ['id' => $rec->moduleid, 'course' => $courseid]);
+            $owned = self::linked_activity($help, (int) $rec->moduleid, $courseid);
             if ($owned) {
                 return $owned;
             }
-        }
-
-        $streams = $DB->get_records('stream', ['course' => $courseid]);
-        if (!$streams) {
-            return null;
         }
 
         $fileid = trim((string) ($rec->fileid ?? ''));
@@ -736,22 +734,17 @@ class teams_link_sync {
         $prefix = (string) ($help->config->prefix ?? '');
 
         $matches = [];
-        foreach ($streams as $stream) {
-            $intro = (string) ($stream->intro ?? '');
-            $same = false;
-            if ($streamid > 0 && in_array((string) $streamid, stream_parse_identifiers($stream->identifier ?? ''), true)) {
-                $same = true;
-            } else if ($norm !== '' && self::text_has_url($intro, $norm)) {
-                $same = true;
-            } else if (strlen($fileid) >= 12 && stripos($intro, $fileid) !== false) {
-                $same = true;
-            } else if (self::same_recording_name((string) ($stream->name ?? ''), $topic, $prefix)) {
-                $same = true;
-            } else if (self::text_has_filename($intro, $topic)) {
-                $same = true;
+        foreach (['url', 'stream'] as $modname) {
+            if (!$DB->get_manager()->table_exists($modname)) {
+                continue;
             }
-            if ($same) {
-                $matches[(int) $stream->id] = $stream;
+            $rows = $DB->get_records($modname, ['course' => $courseid]);
+            foreach ($rows as $row) {
+                if (!self::activity_is_recording($row, $modname, $norm, $fileid, $streamid, $topic, $prefix)) {
+                    continue;
+                }
+                $row->modname = $modname;
+                $matches[] = $row;
             }
         }
 
@@ -762,11 +755,11 @@ class teams_link_sync {
                 $where .= ' AND id <> :id';
                 $params['id'] = (int) $rec->id;
             }
-            $siblings = $DB->get_records_select('local_stream_rec', $where, $params, 'id ASC', 'id, moduleid');
+            $siblings = $DB->get_records_select('local_stream_rec', $where, $params, 'id ASC', 'id, moduleid, course');
             foreach ($siblings as $sibling) {
-                $moduleid = (int) $sibling->moduleid;
-                if (isset($streams[$moduleid])) {
-                    $matches[$moduleid] = $streams[$moduleid];
+                $linked = self::linked_activity($help, (int) $sibling->moduleid, $courseid);
+                if ($linked) {
+                    $matches[] = $linked;
                 }
             }
         }
@@ -774,13 +767,149 @@ class teams_link_sync {
         if (!$matches) {
             return null;
         }
-        ksort($matches);
-        $first = reset($matches);
+        $unique = [];
+        foreach ($matches as $row) {
+            $unique[($row->modname ?? '') . ':' . $row->id] = $row;
+        }
+        $matches = array_values($unique);
+        usort($matches, static function(\stdClass $a, \stdClass $b): int {
+            $aname = $a->modname ?? '';
+            $bname = $b->modname ?? '';
+            if ($aname !== $bname) {
+                return $aname === 'url' ? -1 : 1;
+            }
+            return (int) $a->id <=> (int) $b->id;
+        });
+        $first = $matches[0];
         if (count($matches) > 1) {
             mtrace('Teams: recording #' . (int) ($rec->id ?? 0) . ' matches ' . count($matches)
-                    . ' activities in course #' . $courseid . '; reusing stream #' . $first->id . '.');
+                    . ' activities in course #' . $courseid . '; reusing ' . $first->modname . ' #' . $first->id . '.');
         }
         return $first;
+    }
+
+    /**
+     * @param \local_stream_help $help
+     * @param int $instanceid
+     * @param int $courseid
+     * @return \stdClass|null
+     */
+    private static function linked_activity(\local_stream_help $help, int $instanceid, int $courseid): ?\stdClass {
+        global $DB;
+
+        $mods = (int) $help->config->platform === \local_stream_help::PLATFORM_TEAMS
+                ? ['url', 'stream'] : ['stream', 'url'];
+        foreach ($mods as $modname) {
+            if (!$DB->get_manager()->table_exists($modname)) {
+                continue;
+            }
+            $params = ['id' => $instanceid];
+            if ($courseid > 0) {
+                $params['course'] = $courseid;
+            }
+            $row = $DB->get_record($modname, $params);
+            if (!$row) {
+                continue;
+            }
+            $module = $DB->get_record('modules', ['name' => $modname], 'id');
+            if (!$module) {
+                continue;
+            }
+            $cm = $DB->get_record('course_modules', [
+                    'course' => $row->course,
+                    'module' => $module->id,
+                    'instance' => $row->id,
+            ]);
+            if (!$cm) {
+                continue;
+            }
+            $row->modname = $modname;
+            return $row;
+        }
+        return null;
+    }
+
+    /**
+     * @param \stdClass $row
+     * @param string $modname
+     * @param string $norm
+     * @param string $fileid
+     * @param int $streamid
+     * @param string $topic
+     * @param string $prefix
+     * @return bool
+     */
+    private static function activity_is_recording(
+            \stdClass $row,
+            string $modname,
+            string $norm,
+            string $fileid,
+            int $streamid,
+            string $topic,
+            string $prefix
+    ): bool {
+        $intro = (string) ($row->intro ?? '');
+        $external = (string) ($row->externalurl ?? '');
+        if ($modname === 'url' && $norm !== '' && self::normalize_link($external) === $norm) {
+            return true;
+        }
+        if ($streamid > 0 && $modname === 'stream'
+                && in_array((string) $streamid, self::video_ids($row->identifier ?? ''), true)) {
+            return true;
+        }
+        $text = $intro . ' ' . $external;
+        if ($norm !== '' && self::text_has_url($text, $norm)) {
+            return true;
+        }
+        if (strlen($fileid) >= 12 && stripos($text, $fileid) !== false) {
+            return true;
+        }
+        if (self::same_recording_name((string) ($row->name ?? ''), $topic, $prefix)) {
+            return true;
+        }
+        return self::text_has_filename($text, $topic);
+    }
+
+    /**
+     * @param string $identifier
+     * @return string[]
+     */
+    private static function video_ids($identifier): array {
+        $identifier = trim((string) $identifier);
+        if ($identifier === '' || $identifier === 'auto_collection') {
+            return [];
+        }
+        $ids = array_map('trim', explode(',', $identifier));
+        $ids = array_filter($ids, static function(string $id): bool {
+            return $id !== '' && $id !== 'auto_collection';
+        });
+        return array_values($ids);
+    }
+
+    /**
+     * @param \stdClass $url
+     * @param string $serverurl
+     * @return bool
+     */
+    private function update_url_link(\stdClass $url, string $serverurl): bool {
+        global $DB;
+
+        $href = $this->playback_href($serverurl);
+        if ($href === '' || self::normalize_link((string) ($url->externalurl ?? '')) === self::normalize_link($serverurl)) {
+            return false;
+        }
+        if ($this->dryrun) {
+            mtrace('[dry-run] Would update URL activity #' . $url->id . ' in course #' . $url->course . '.');
+            return true;
+        }
+        unset($url->modname);
+        $url->externalurl = $href;
+        $url->timemodified = time();
+        $DB->update_record('url', $url);
+        rebuild_course_cache($url->course, true);
+        unset($this->coursetexts[(int) $url->course]);
+        mtrace('Updated URL activity #' . $url->id . ' in course #' . $url->course . '.');
+        return true;
     }
 
     /**

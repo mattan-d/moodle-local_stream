@@ -1891,6 +1891,22 @@ class local_stream_help {
             return true;
         }
 
+        if ((int) $this->config->platform === self::PLATFORM_TEAMS
+                && $this->delete_embedded_url_activity($meeting, $dryrun, $logfn)) {
+            return true;
+        }
+
+        if (!$DB->get_manager()->table_exists('stream')) {
+            if (!$dryrun) {
+                $meeting->moduleid = 0;
+                $meeting->embedded = 0;
+                $meeting->embedded_at = 0;
+                $DB->update_record('local_stream_rec', $meeting);
+            }
+            $logfn('Recording #' . $meeting->id . ': no course activity to remove; cleared embed flags.');
+            return true;
+        }
+
         $stream = $DB->get_record('stream', ['id' => (int) $meeting->moduleid]);
         if (!$stream) {
             if (!$dryrun) {
@@ -1940,6 +1956,90 @@ class local_stream_help {
     }
 
     /**
+     * Delete a Teams URL activity stored in moduleid.
+     *
+     * @param \stdClass $meeting
+     * @param bool $dryrun
+     * @param callable $logfn
+     * @return bool True when an URL activity was found.
+     */
+    private function delete_embedded_url_activity($meeting, $dryrun, callable $logfn): bool {
+        global $CFG, $DB;
+
+        if (empty($meeting->course) || !$DB->get_manager()->table_exists('url')) {
+            return false;
+        }
+        $url = $DB->get_record('url', ['id' => (int) $meeting->moduleid, 'course' => (int) $meeting->course]);
+        if (!$url) {
+            return false;
+        }
+        $cm = get_coursemodule_from_instance('url', $url->id, $url->course);
+        if (!$cm) {
+            return false;
+        }
+        $wanted = 'meeting-' . ($meeting->meetingid ?? '');
+        $same = $wanted !== 'meeting-' && (string) $cm->idnumber === $wanted;
+        if (!$same && !empty($meeting->fileid) && strlen((string) $meeting->fileid) >= 12) {
+            $same = strpos((string) $url->externalurl, (string) $meeting->fileid) !== false;
+        }
+        if (!$same) {
+            return false;
+        }
+        if ($dryrun) {
+            $logfn('[dry-run] Would delete URL activity #' . $url->id . ' in course #' . $url->course . '.');
+            return true;
+        }
+        require_once($CFG->dirroot . '/course/lib.php');
+        course_delete_module($cm->id);
+        $meeting->moduleid = 0;
+        $meeting->embedded = 0;
+        $meeting->embedded_at = 0;
+        $DB->update_record('local_stream_rec', $meeting);
+        $logfn('Deleted URL activity #' . $url->id . ' in course #' . $url->course . '.');
+        return true;
+    }
+
+    /**
+     * Playback URL opened by a Teams URL activity.
+     *
+     * @param \stdClass $meeting
+     * @return string
+     */
+    public function teams_playback_url($meeting): string {
+        $url = $this->get_meeting($meeting);
+        if ($url instanceof \moodle_url) {
+            $url = $url->out(false);
+        }
+        $url = is_string($url) ? $url : '';
+        if ($url === '' || stripos($url, '/watch/') !== false || stripos($url, 'web=1') !== false) {
+            return $url;
+        }
+        $join = strpos($url, '?') === false ? '?' : '&';
+        return $url . $join . 'web=1&csf=1';
+    }
+
+    /**
+     * Activity name shared by stream and URL embeds.
+     *
+     * @param \stdClass $meeting
+     * @param \stdClass|null $recordingdata
+     * @return string
+     */
+    private function recording_activity_name($meeting, $recordingdata = null): string {
+        if (!empty($this->config->hidetopic)) {
+            $meeting->topic = '';
+        }
+        $name = !empty($this->config->prefix) ? ($this->config->prefix . ' ' . $meeting->topic) : (string) $meeting->topic;
+        if (!empty($this->config->addrecordingtype) && isset($recordingdata->recording_type)) {
+            $name .= ' ' . $this->convert_camel_case($recordingdata->recording_type);
+        }
+        if (!empty($this->config->adddate)) {
+            $name .= ' (' . userdate(strtotime($meeting->starttime)) . ')';
+        }
+        return $name;
+    }
+
+    /**
      * Add a Zoom meeting module to a course.
      *
      * This method creates a new module in the specified course with information from the Zoom meeting.
@@ -1956,20 +2056,46 @@ class local_stream_help {
 
         $meeting->idnumber = 'meeting-' . $meeting->meetingid;
 
-        // Teams: never add a second course activity for a recording already placed.
+        // Teams links are ordinary URL activities. mod_stream is not required.
         if ((int) $this->config->platform === self::PLATFORM_TEAMS) {
             global $CFG;
             require_once($CFG->dirroot . '/local/stream/classes/teams_link_sync.php');
+            require_once($CFG->libdir . '/resourcelib.php');
             if ($existing = \local_stream\teams_link_sync::find_existing_stream($this, $meeting)) {
                 $meeting->reusedexisting = 1;
+                $meeting->placedmodulename = $existing->modname ?? 'url';
                 mtrace('Teams: recording #' . $meeting->id . ' already in course #' . $existing->course
-                        . ' as stream #' . $existing->id . '; not creating another activity.');
+                        . ' as ' . $meeting->placedmodulename . ' #' . $existing->id
+                        . '; not creating another activity.');
                 return (object) ['id' => $existing->id];
             }
+
+            $playurl = $this->teams_playback_url($meeting);
+            if ($playurl === '') {
+                mtrace('Teams: recording #' . $meeting->id . ' has no playback link; not creating an activity.');
+                return false;
+            }
+            $recordingdata = isset($meeting->recordingdata) ? json_decode($meeting->recordingdata) : null;
+            $moduledata = new \stdClass();
+            $moduledata->course = $meeting->course;
+            $moduledata->modulename = 'url';
+            $moduledata->section = 0;
+            $moduledata->idnumber = $meeting->idnumber;
+            $moduledata->visible = ($this->config->hidefromstudents ? 0 : 1);
+            $moduledata->externalurl = $playurl;
+            $moduledata->display = RESOURCELIB_DISPLAY_OPEN;
+            $moduledata->introeditor = [
+                    'text' => '',
+                    'format' => FORMAT_HTML,
+            ];
+            $moduledata->name = $this->recording_activity_name($meeting, $recordingdata);
+            $meeting->placedmodulename = 'url';
+            return create_module($moduledata);
         }
 
         // For Zoom platform, handle mod_stream collection mode
-        if ($this->config->platform == $this::PLATFORM_ZOOM && $meeting->streamid) {
+        if ($this->config->platform == $this::PLATFORM_ZOOM && $meeting->streamid
+                && $DB->get_manager()->table_exists('stream')) {
             // Find mod_stream instances with collection_mode=true in the specified course
             $streaminstances = $DB->get_records('stream', [
                     'course' => $meeting->course,
@@ -2018,7 +2144,8 @@ class local_stream_help {
         ];
 
         // For Zoom platform, check if this is the first mod_stream in the course and setting is enabled
-        if ($this->config->platform == $this::PLATFORM_ZOOM && $this->config->defaultcollectionmode) {
+        if ($this->config->platform == $this::PLATFORM_ZOOM && $this->config->defaultcollectionmode
+                && $DB->get_manager()->table_exists('stream')) {
             $existingstreams = $DB->count_records('stream', ['course' => $meeting->course]);
             if ($existingstreams == 0) {
                 // This is the first mod_stream in the course, set collection_mode = 1
@@ -2053,24 +2180,7 @@ class local_stream_help {
             }
         }
 
-        if ($this->config->hidetopic) {
-            $meeting->topic = '';
-        }
-
-        if ($this->config->prefix) {
-            $moduledata->name = $this->config->prefix . ' ' . $meeting->topic;
-        } else {
-            $moduledata->name = $meeting->topic;
-        }
-
-        if ($this->config->addrecordingtype && isset($recordingdata) && isset($recordingdata->recording_type)) {
-            $moduledata->name .= ' ' . $this->convert_camel_case($recordingdata->recording_type);
-        }
-
-        if ($this->config->adddate) {
-            $moduledata->name .= ' (' . userdate(strtotime($meeting->starttime)) . ')';
-        }
-
+        $moduledata->name = $this->recording_activity_name($meeting, $recordingdata ?? null);
         $moduledata->topic = $meeting->topic;
 
         return create_module($moduledata);
@@ -2090,8 +2200,27 @@ class local_stream_help {
         $this->apply_embed_preferences_for_email($meeting->email ?? '');
 
         if ($meeting->moduleid) {
+            if ((int) $this->config->platform === self::PLATFORM_TEAMS
+                    && $DB->get_manager()->table_exists('url')) {
+                $url = $DB->get_record('url', ['id' => $meeting->moduleid, 'course' => $meeting->course]);
+                if ($url) {
+                    $cm = get_coursemodule_from_instance('url', $url->id, $url->course);
+                    if ($cm) {
+                        $url->name = $this->recording_activity_name($meeting);
+                        $DB->update_record('url', $url);
+                        course_modinfo::purge_course_module_cache($meeting->course, $cm->id);
+                        return $url->id;
+                    }
+                }
+            }
+            if (!$DB->get_manager()->table_exists('stream')) {
+                return false;
+            }
             $cm = get_coursemodule_from_instance('stream', $meeting->moduleid);
             $stream = $DB->get_record('stream', ['id' => $meeting->moduleid]);
+            if (!$stream || !$cm) {
+                return false;
+            }
 
             if ($this->config->prefix) {
                 $stream->name = $this->config->prefix . ' ' . $meeting->topic;
