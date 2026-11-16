@@ -409,20 +409,125 @@ class teams_stream_convert {
                 continue;
             }
             if (!$cm) {
+                if (!$this->dryrun) {
+                    $DB->delete_records('stream', ['id' => $activity->id]);
+                }
                 continue;
             }
             if ($this->dryrun) {
                 mtrace('[dry-run] Would delete Stream activity #' . $activity->id . ' in course #' . $activity->course . '.');
                 continue;
             }
-            try {
-                course_delete_module($cm->id);
-            } catch (\Exception $e) {
-                mtrace('Failed to delete Stream activity #' . $activity->id . ': ' . $e->getMessage());
+            if (!$this->delete_stream_module($cm, $activity)) {
                 return false;
             }
         }
         return true;
+    }
+
+    /**
+     * Remove a Stream course module. mod_stream does not have to be installed.
+     *
+     * @param \stdClass $cm
+     * @param \stdClass $activity
+     * @return bool
+     */
+    private function delete_stream_module(\stdClass $cm, \stdClass $activity): bool {
+        global $CFG;
+
+        $lib = $CFG->dirroot . '/mod/stream/lib.php';
+        if (is_readable($lib)) {
+            try {
+                course_delete_module($cm->id);
+                return true;
+            } catch (\moodle_exception $e) {
+                if (!in_array($e->errorcode, ['cannotdeletemodulemissinglib', 'cannotdeletemodulemissingfunc'], true)) {
+                    mtrace('Failed to delete Stream activity #' . $activity->id . ': ' . $e->getMessage());
+                    return false;
+                }
+            }
+        }
+        try {
+            $this->delete_stream_module_without_plugin($cm, $activity);
+        } catch (\Exception $e) {
+            mtrace('Failed to delete Stream activity #' . $activity->id . ': ' . $e->getMessage());
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Drop a Stream activity when mod/stream/lib.php is not available.
+     *
+     * @param \stdClass $cm
+     * @param \stdClass $activity
+     * @return void
+     */
+    private function delete_stream_module_without_plugin(\stdClass $cm, \stdClass $activity): void {
+        global $CFG, $DB;
+
+        require_once($CFG->libdir . '/gradelib.php');
+        require_once($CFG->libdir . '/questionlib.php');
+        require_once($CFG->dirroot . '/blog/lib.php');
+        require_once($CFG->dirroot . '/calendar/lib.php');
+
+        $modcontext = \context_module::instance($cm->id, IGNORE_MISSING);
+        if ($modcontext) {
+            question_delete_activity($cm);
+            get_file_storage()->delete_area_files($modcontext->id);
+            blog_remove_associations_for_module($modcontext->id);
+            \core_tag_tag::delete_instances('mod_stream', null, $modcontext->id);
+            \core_tag_tag::remove_all_item_tags('core', 'course_modules', $cm->id);
+        }
+
+        $events = $DB->get_records('event', ['instance' => $cm->instance, 'modulename' => 'stream']);
+        if ($events) {
+            $coursecontext = \context_course::instance($cm->course);
+            foreach ($events as $event) {
+                $event->context = $coursecontext;
+                \calendar_event::load($event)->delete();
+            }
+        }
+
+        $gradeitems = \grade_item::fetch_all([
+                'itemtype' => 'mod',
+                'itemmodule' => 'stream',
+                'iteminstance' => $cm->instance,
+                'courseid' => $cm->course,
+        ]);
+        if ($gradeitems) {
+            foreach ($gradeitems as $gradeitem) {
+                $gradeitem->delete('moddelete');
+            }
+        }
+
+        $DB->delete_records('course_modules_completion', ['coursemoduleid' => $cm->id]);
+        if ($DB->get_manager()->table_exists('course_modules_viewed')) {
+            $DB->delete_records('course_modules_viewed', ['coursemoduleid' => $cm->id]);
+        }
+        $DB->delete_records('course_completion_criteria', [
+                'moduleinstance' => $cm->id,
+                'course' => $cm->course,
+                'criteriatype' => COMPLETION_CRITERIA_TYPE_ACTIVITY,
+        ]);
+
+        if ($modcontext) {
+            \context_helper::delete_instance(CONTEXT_MODULE, $cm->id);
+        }
+        $DB->delete_records('course_modules', ['id' => $cm->id]);
+        delete_mod_from_section($cm->id, $cm->section);
+
+        if ($DB->get_manager()->table_exists('stream_viewed_videos')) {
+            $DB->delete_records('stream_viewed_videos', ['streamid' => $activity->id]);
+        }
+        if ($DB->get_manager()->table_exists('stream')) {
+            $DB->delete_records('stream', ['id' => $activity->id]);
+        }
+
+        \course_modinfo::purge_course_module_cache($cm->course, $cm->id);
+        rebuild_course_cache($cm->course, true);
+        mtrace('Removed Stream activity #' . $activity->id . ' from course #' . $cm->course
+                . ' without mod_stream.');
     }
 
     /**
