@@ -186,6 +186,13 @@ class local_stream_help {
     public $syncemail = '';
 
     /**
+     * When true, sync only meetings whose name contains a course code such as 31-2-31212.
+     *
+     * @var bool
+     */
+    public $synccoursecodesonly = false;
+
+    /**
      * Optional override for the Teams listing window, in days.
      * Null keeps the admin "Days to listing" setting.
      *
@@ -543,7 +550,7 @@ class local_stream_help {
     public function filter_meetings_for_sync(array $meetings): array {
         $meetingid = ltrim(trim((string) $this->syncmeetingid), '#');
         $email = strtolower(trim((string) $this->syncemail));
-        if ($meetingid === '' && $email === '') {
+        if ($meetingid === '' && $email === '' && !$this->synccoursecodesonly) {
             return $meetings;
         }
 
@@ -561,6 +568,14 @@ class local_stream_help {
             if ($email !== '') {
                 $host = strtolower(trim((string) ($meeting->email ?? $meeting->hostEmail ?? '')));
                 if ($host !== $email) {
+                    continue;
+                }
+            }
+            if ($this->synccoursecodesonly) {
+                global $CFG;
+                require_once($CFG->dirroot . '/local/stream/classes/zoom_course_embed.php');
+                $topic = (string) ($meeting->topic ?? $meeting->title ?? '');
+                if (!\local_stream\zoom_course_embed::course_codes($topic)) {
                     continue;
                 }
             }
