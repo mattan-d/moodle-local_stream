@@ -96,33 +96,6 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_heading('local_stream/platformsettings',
             get_string('platform_settings', 'local_stream'), ''));
 
-    global $PAGE, $OUTPUT;
-    $streamplatform = (int) (get_config('local_stream', 'platform') ?? local_stream_help::PLATFORM_ZOOM);
-    $settingssection = '';
-    if (!CLI_SCRIPT && !empty($PAGE->url)) {
-        $settingssection = (string) $PAGE->url->get_param('section');
-    }
-    if (!empty($ADMIN->fulltree) && $streamplatform === local_stream_help::PLATFORM_ZOOM
-            && $settingssection === 'local_stream_settings') {
-        $zoomstatus = local_stream_help::zoom_connection_status();
-        if ($zoomstatus->ok) {
-            $zoommessage = get_string('zoomconnectionok', 'local_stream');
-            $zoomnotify = class_exists('\core\output\notification')
-                    ? \core\output\notification::NOTIFY_SUCCESS : 'notifysuccess';
-        } else if (!empty($zoomstatus->missing)) {
-            $zoommessage = get_string('zoommissingscopes', 'local_stream', implode(', ', $zoomstatus->missing));
-            $zoomnotify = class_exists('\core\output\notification')
-                    ? \core\output\notification::NOTIFY_ERROR : 'notifyproblem';
-        } else {
-            $zoommessage = get_string('zoomconnectionfailed', 'local_stream', $zoomstatus->error);
-            $zoomnotify = class_exists('\core\output\notification')
-                    ? \core\output\notification::NOTIFY_ERROR : 'notifyproblem';
-        }
-        $settings->add(new admin_setting_heading('local_stream/zoomconnectionstatus',
-                $OUTPUT->notification($zoommessage, $zoomnotify), ''));
-        $settings->hide_if('local_stream/zoomconnectionstatus', 'local_stream/platform', 'in', '1|2|3');
-    }
-
     // UNICKO.
     $settings->add(new admin_setting_configtext('local_stream/unickokey',
             get_string('clientid', 'local_stream'), '', ''));
@@ -178,10 +151,15 @@ if ($hassiteconfig) {
 
     // ZOOM.
     // Account ID, client ID and client secret come from mod_zoom when that plugin already has them.
+    $zoomconnectionmessage = local_stream_help::zoom_connection_message();
     if (local_stream_help::mod_zoom_credentials()) {
+        $zoomfromdesc = get_string('zoomfrommodzoom_desc', 'local_stream');
+        if ($zoomconnectionmessage !== '') {
+            $zoomfromdesc .= "\n\n<p>" . s($zoomconnectionmessage) . "</p>";
+        }
         $settings->add(new admin_setting_heading('local_stream/zoomfrommodzoom',
                 get_string('zoomfrommodzoom', 'local_stream'),
-                get_string('zoomfrommodzoom_desc', 'local_stream')));
+                $zoomfromdesc));
         $settings->hide_if('local_stream/zoomfrommodzoom', 'local_stream/platform', 'in', '1|2|3');
     } else {
         $settings->add(new admin_setting_configtext('local_stream/accountid',
@@ -195,6 +173,12 @@ if ($hassiteconfig) {
         $settings->add(new admin_setting_configpasswordunmask('local_stream/clientsecret',
                 get_string('clientsecret', 'local_stream'), '', ''));
         $settings->hide_if('local_stream/clientsecret', 'local_stream/platform', 'in', '1|2|3');
+
+        if ($zoomconnectionmessage !== '') {
+            $settings->add(new admin_setting_heading('local_stream/zoomconnectionstatus',
+                    $zoomconnectionmessage, ''));
+            $settings->hide_if('local_stream/zoomconnectionstatus', 'local_stream/platform', 'in', '1|2|3');
+        }
     }
 
     $options = [

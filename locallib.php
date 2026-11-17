@@ -325,6 +325,32 @@ class local_stream_help {
     }
 
     /**
+     * Status sentence for the Zoom platform settings, or an empty string when it should not be shown.
+     *
+     * @return string
+     */
+    public static function zoom_connection_message(): string {
+        global $ADMIN;
+        if (CLI_SCRIPT || empty($ADMIN->fulltree)) {
+            return '';
+        }
+        if (optional_param('section', '', PARAM_SAFEDIR) !== 'local_stream_settings') {
+            return '';
+        }
+        if ((int) get_config('local_stream', 'platform') !== self::PLATFORM_ZOOM) {
+            return '';
+        }
+        $status = self::zoom_connection_status();
+        if ($status->ok) {
+            return get_string('zoomconnectionok', 'local_stream');
+        }
+        if (!empty($status->missing)) {
+            return get_string('zoommissingscopes', 'local_stream', implode(', ', $status->missing));
+        }
+        return get_string('zoomconnectionfailed', 'local_stream', $status->error);
+    }
+
+    /**
      * Use this host's embedding preferences for subsequent config reads.
      *
      * Keys the teacher has not set stay at the site value. Other plugin settings are unchanged.
