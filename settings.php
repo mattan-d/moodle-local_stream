@@ -150,17 +150,25 @@ if ($hassiteconfig) {
     $settings->hide_if('local_stream/webexclientsecret', 'local_stream/platform', 'in', '0|2|3');
 
     // ZOOM.
-    $settings->add(new admin_setting_configtext('local_stream/accountid',
-            get_string('accountid', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/accountid', 'local_stream/platform', 'in', '1|2|3');
+    // Account ID, client ID and client secret come from mod_zoom when that plugin already has them.
+    if (local_stream_help::mod_zoom_credentials()) {
+        $settings->add(new admin_setting_heading('local_stream/zoomfrommodzoom',
+                get_string('zoomfrommodzoom', 'local_stream'),
+                get_string('zoomfrommodzoom_desc', 'local_stream')));
+        $settings->hide_if('local_stream/zoomfrommodzoom', 'local_stream/platform', 'in', '1|2|3');
+    } else {
+        $settings->add(new admin_setting_configtext('local_stream/accountid',
+                get_string('accountid', 'local_stream'), '', ''));
+        $settings->hide_if('local_stream/accountid', 'local_stream/platform', 'in', '1|2|3');
 
-    $settings->add(new admin_setting_configtext('local_stream/clientid',
-            get_string('clientid', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/clientid', 'local_stream/platform', 'in', '1|2|3');
+        $settings->add(new admin_setting_configtext('local_stream/clientid',
+                get_string('clientid', 'local_stream'), '', ''));
+        $settings->hide_if('local_stream/clientid', 'local_stream/platform', 'in', '1|2|3');
 
-    $settings->add(new admin_setting_configpasswordunmask('local_stream/clientsecret',
-            get_string('clientsecret', 'local_stream'), '', ''));
-    $settings->hide_if('local_stream/clientsecret', 'local_stream/platform', 'in', '1|2|3');
+        $settings->add(new admin_setting_configpasswordunmask('local_stream/clientsecret',
+                get_string('clientsecret', 'local_stream'), '', ''));
+        $settings->hide_if('local_stream/clientsecret', 'local_stream/platform', 'in', '1|2|3');
+    }
 
     $options = [
         0 => get_string('never', 'local_stream'),

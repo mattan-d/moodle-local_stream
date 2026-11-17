@@ -188,8 +188,57 @@ class local_stream_help {
      * Initializes the object by setting the 'config' property using the 'local_stream' configuration.
      */
     public function __construct() {
-        $this->config = get_config('local_stream');
+        $config = get_config('local_stream');
+        $this->config = is_object($config) ? clone $config : new stdClass();
+        self::apply_mod_zoom_credentials($this->config);
         $this->cache = cache::make('local_stream', 'streamdata');
+    }
+
+    /**
+     * Zoom account ID, client ID and client secret saved in mod_zoom.
+     *
+     * @return stdClass|null Credentials when all three settings exist.
+     */
+    public static function mod_zoom_credentials(): ?stdClass {
+        global $CFG;
+        if (!is_readable($CFG->dirroot . '/mod/zoom/version.php')) {
+            return null;
+        }
+        $zoom = get_config('zoom');
+        if (!is_object($zoom)) {
+            return null;
+        }
+        $accountid = trim((string) ($zoom->accountid ?? ''));
+        $clientid = trim((string) ($zoom->clientid ?? ''));
+        $clientsecret = trim((string) ($zoom->clientsecret ?? ''));
+        if ($accountid === '' || $clientid === '' || $clientsecret === '') {
+            return null;
+        }
+        return (object) [
+            'accountid' => $accountid,
+            'clientid' => $clientid,
+            'clientsecret' => $clientsecret,
+        ];
+    }
+
+    /**
+     * When the platform is Zoom and mod_zoom has credentials, use those.
+     *
+     * @param stdClass $config local_stream configuration object.
+     * @return void
+     */
+    public static function apply_mod_zoom_credentials(stdClass $config): void {
+        $platform = (int) ($config->platform ?? self::PLATFORM_ZOOM);
+        if ($platform !== self::PLATFORM_ZOOM) {
+            return;
+        }
+        $zoom = self::mod_zoom_credentials();
+        if ($zoom === null) {
+            return;
+        }
+        $config->accountid = $zoom->accountid;
+        $config->clientid = $zoom->clientid;
+        $config->clientsecret = $zoom->clientsecret;
     }
 
     /**
@@ -440,7 +489,7 @@ class local_stream_help {
      */
     public function get_zoom_token() {
 
-        $config = get_config('local_stream');
+        $config = $this->config;
 
         $url = 'https://zoom.us/oauth/token?grant_type=account_credentials&account_id=' . $config->accountid;
 

@@ -27,6 +27,7 @@ define('CLI_SCRIPT', true);
 require(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/clilib.php');
 require_once($CFG->libdir . '/filelib.php');
+require_once($CFG->dirroot . '/local/stream/locallib.php');
 require_once($CFG->dirroot . '/local/stream/classes/zoom_recordings_report.php');
 
 $defaultto = date('Y-m-d');
@@ -59,7 +60,7 @@ if ($options['help']) {
 בחשבון, וסופר פגישות עם הקלטות, קבצי הקלטה וקבצי MP4. Zoom מאפשר לשלוף חודש אחד
 בכל קריאה, ולכן הטווח מחולק לחודשים.
 
-אם לא מעבירים פרטי חיבור, נעשה שימוש בערכים השמורים בהגדרות local_stream.
+אם לא מעבירים פרטי חיבור, נעשה שימוש בהגדרות mod_zoom כשהן קיימות, ואחרת בהגדרות local_stream.
 
 Options:
 --accountid=ID         Zoom account ID
@@ -82,6 +83,9 @@ Examples:
 }
 
 $config = get_config('local_stream');
+if (is_object($config)) {
+    local_stream_help::apply_mod_zoom_credentials($config);
+}
 $accountid = trim((string) $options['accountid']);
 $clientid = trim((string) $options['clientid']);
 $clientsecret = (string) $options['clientsecret'];
@@ -95,7 +99,7 @@ if ($clientsecret === '') {
     $clientsecret = (string) ($config->clientsecret ?? '');
 }
 if ($accountid === '' || $clientid === '' || $clientsecret === '') {
-    cli_error('חסרים פרטי Zoom. יש להעביר --accountid, --clientid ואת --clientsecret, או לשמור אותם בהגדרות התוסף.');
+    cli_error('חסרים פרטי Zoom. יש להעביר --accountid, --clientid ואת --clientsecret, או להגדיר אותם ב-mod_zoom או בתוסף זה.');
 }
 
 $from = (string) $options['from'];
