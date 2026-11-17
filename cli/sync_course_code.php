@@ -60,6 +60,7 @@ if ($options['help']) {
 
 הקוד הוא בפורמט כמו 31-2-31212, 12-33-4234234 או 8-1-324234234.
 מפגשים בלי קוד כזה לא נשמרים.
+לפני השמירה, ה-passcode של ההקלטה ב-Zoom מבוטל כדי שהקובץ ירד בלי סיסמה.
 
 Options:
 -d, --days=NUMBER       כמה ימים אחורה (ברירת מחדל: מהגדרות התוסף)
@@ -85,6 +86,7 @@ if ((int) $help->config->platform !== local_stream_help::PLATFORM_ZOOM) {
 }
 
 $help->synccoursecodesonly = true;
+$help->clearrecordingpasscode = true;
 $help->resetexistingstatus = !empty($options['reset-status']);
 $help->recoverzoomtrash = !empty($options['recover-trash']);
 $help->syncmeetingid = ltrim(trim((string) ($options['meetingid'] ?? '')), '#');

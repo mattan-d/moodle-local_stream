@@ -193,6 +193,13 @@ class local_stream_help {
     public $synccoursecodesonly = false;
 
     /**
+     * When true, remove the Zoom cloud-recording passcode before the file is saved for download.
+     *
+     * @var bool
+     */
+    public $clearrecordingpasscode = false;
+
+    /**
      * Optional override for the Teams listing window, in days.
      * Null keeps the admin "Days to listing" setting.
      *
@@ -1309,6 +1316,44 @@ class local_stream_help {
     }
 
     /**
+     * Remove the passcode from a Zoom cloud recording so the file can be downloaded without it.
+     *
+     * @param object $meeting Metrics meeting with uuid or id.
+     * @return bool
+     */
+    public function clear_zoom_recording_passcode($meeting): bool {
+        $uuid = trim((string) ($meeting->uuid ?? ''));
+        $meetingid = trim((string) ($meeting->id ?? ''));
+        if ($uuid !== '') {
+            $target = $this->encode_uuid($uuid);
+        } else if ($meetingid !== '') {
+            $target = rawurlencode($meetingid);
+        } else {
+            mtrace('Task: Cannot clear recording passcode without a meeting id.');
+            return false;
+        }
+
+        $info = $this->call_zoom_api(
+                'meetings/' . $target . '/recordings/settings',
+                [
+                        'password' => '',
+                        'viewer_download' => true,
+                        'recording_authentication' => false,
+                ],
+                'patch',
+                true,
+                true
+        );
+        $code = is_array($info) ? (int) ($info['http_code'] ?? 0) : 0;
+        if ($code === 204) {
+            mtrace('Task: Recording passcode removed.');
+            return true;
+        }
+        mtrace('Task: Could not remove recording passcode. HTTP ' . $code);
+        return false;
+    }
+
+    /**
      * Active cloud recording files for one Zoom meeting instance.
      *
      * @param object $meeting Metrics meeting (needs uuid)
@@ -1440,6 +1485,10 @@ class local_stream_help {
             $meetingdetails = $this->format_meeting_log_details($meeting);
             mtrace('Task: Checking meeting ' . $i . ' out of ' . $totalcount . ' #' . $meeting->id . $meetingdetails);
             $i++;
+
+            if ($this->clearrecordingpasscode) {
+                $this->clear_zoom_recording_passcode($meeting);
+            }
 
             $files = $this->zoom_recording_files($meeting);
             if (!$files && $this->recoverzoomtrash) {
