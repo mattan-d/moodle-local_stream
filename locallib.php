@@ -242,6 +242,89 @@ class local_stream_help {
     }
 
     /**
+     * Scopes from the token that this plugin still needs.
+     *
+     * Each pair is the classic name and the granular name of the same permission.
+     *
+     * @param string[] $granted Scopes returned by Zoom.
+     * @return string[] Missing scope names, in the style of the Zoom app.
+     */
+    public static function missing_zoom_scopes(array $granted): array {
+        $granular = false;
+        foreach ($granted as $scope) {
+            if (substr_count($scope, ':') >= 3) {
+                $granular = true;
+                break;
+            }
+        }
+        $groups = [
+            ['user:read:admin', 'user:read:list_users:admin'],
+            ['recording:read:admin', 'cloud_recording:read:list_user_recordings:admin'],
+        ];
+        $missing = [];
+        foreach ($groups as $options) {
+            if (array_intersect($options, $granted)) {
+                continue;
+            }
+            $missing[] = $granular ? $options[1] : $options[0];
+        }
+        return $missing;
+    }
+
+    /**
+     * Check the Zoom account credentials and the scopes on the access token.
+     *
+     * @return stdClass ok, missing scope names, and a short error when the token request fails.
+     */
+    public static function zoom_connection_status(): stdClass {
+        global $CFG;
+        require_once($CFG->libdir . '/filelib.php');
+
+        $status = (object) [
+            'ok' => false,
+            'missing' => [],
+            'error' => '',
+        ];
+        $config = get_config('local_stream');
+        $config = is_object($config) ? clone $config : new stdClass();
+        self::apply_mod_zoom_credentials($config);
+
+        $accountid = trim((string) ($config->accountid ?? ''));
+        $clientid = trim((string) ($config->clientid ?? ''));
+        $clientsecret = trim((string) ($config->clientsecret ?? ''));
+        if ($accountid === '' || $clientid === '' || $clientsecret === '') {
+            $status->error = get_string('zoomconnectionnoconfig', 'local_stream');
+            return $status;
+        }
+
+        $url = 'https://zoom.us/oauth/token?grant_type=account_credentials&account_id=' . rawurlencode($accountid);
+        $curl = new \curl();
+        $curl->setHeader([
+            'authorization: Basic ' . base64_encode($clientid . ':' . $clientsecret),
+            'Content-Type: application/json',
+        ]);
+        $body = $curl->post($url, null, ['RETURNTRANSFER' => true, 'CURLOPT_TIMEOUT' => 20]);
+        $response = json_decode($body);
+        if (!is_object($response) || empty($response->access_token)) {
+            $error = '';
+            if (is_object($response)) {
+                $error = (string) ($response->reason ?? $response->error ?? $response->message ?? '');
+            }
+            if ($error === '') {
+                $info = $curl->get_info();
+                $error = 'HTTP ' . (int) ($info['http_code'] ?? 0);
+            }
+            $status->error = $error;
+            return $status;
+        }
+
+        $granted = preg_split('/\s+/', trim((string) ($response->scope ?? '')), -1, PREG_SPLIT_NO_EMPTY);
+        $status->missing = self::missing_zoom_scopes($granted ?: []);
+        $status->ok = $status->missing === [];
+        return $status;
+    }
+
+    /**
      * Use this host's embedding preferences for subsequent config reads.
      *
      * Keys the teacher has not set stay at the site value. Other plugin settings are unchanged.

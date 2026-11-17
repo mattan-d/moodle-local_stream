@@ -96,6 +96,33 @@ if ($hassiteconfig) {
     $settings->add(new admin_setting_heading('local_stream/platformsettings',
             get_string('platform_settings', 'local_stream'), ''));
 
+    global $PAGE, $OUTPUT;
+    $streamplatform = (int) (get_config('local_stream', 'platform') ?? local_stream_help::PLATFORM_ZOOM);
+    $settingssection = '';
+    if (!CLI_SCRIPT && !empty($PAGE->url)) {
+        $settingssection = (string) $PAGE->url->get_param('section');
+    }
+    if (!empty($ADMIN->fulltree) && $streamplatform === local_stream_help::PLATFORM_ZOOM
+            && $settingssection === 'local_stream_settings') {
+        $zoomstatus = local_stream_help::zoom_connection_status();
+        if ($zoomstatus->ok) {
+            $zoommessage = get_string('zoomconnectionok', 'local_stream');
+            $zoomnotify = class_exists('\core\output\notification')
+                    ? \core\output\notification::NOTIFY_SUCCESS : 'notifysuccess';
+        } else if (!empty($zoomstatus->missing)) {
+            $zoommessage = get_string('zoommissingscopes', 'local_stream', implode(', ', $zoomstatus->missing));
+            $zoomnotify = class_exists('\core\output\notification')
+                    ? \core\output\notification::NOTIFY_ERROR : 'notifyproblem';
+        } else {
+            $zoommessage = get_string('zoomconnectionfailed', 'local_stream', $zoomstatus->error);
+            $zoomnotify = class_exists('\core\output\notification')
+                    ? \core\output\notification::NOTIFY_ERROR : 'notifyproblem';
+        }
+        $settings->add(new admin_setting_heading('local_stream/zoomconnectionstatus',
+                $OUTPUT->notification($zoommessage, $zoomnotify), ''));
+        $settings->hide_if('local_stream/zoomconnectionstatus', 'local_stream/platform', 'in', '1|2|3');
+    }
+
     // UNICKO.
     $settings->add(new admin_setting_configtext('local_stream/unickokey',
             get_string('clientid', 'local_stream'), '', ''));
