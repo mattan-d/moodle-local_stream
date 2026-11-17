@@ -70,6 +70,16 @@ class local_stream_help {
     private $zoomscopemissing = [];
 
     /**
+     * Zoom embed collection override for the course-code CLI.
+     *
+     * null keeps the site setting. true forces one playlist activity per course.
+     * false creates a separate activity and does not join an existing collection.
+     *
+     * @var bool|null
+     */
+    public $zoomembedcollection = null;
+
+    /**
      * Constant representing the Zoom platform.
      */
     public const PLATFORM_ZOOM = 0;
@@ -2300,8 +2310,10 @@ class local_stream_help {
             return create_module($moduledata);
         }
 
-        // For Zoom platform, handle mod_stream collection mode
-        if ($this->config->platform == $this::PLATFORM_ZOOM && $meeting->streamid
+        // For Zoom platform, handle mod_stream collection mode.
+        // The course-code CLI can force this off so each recording stays its own activity.
+        if ($this->zoomembedcollection !== false
+                && $this->config->platform == $this::PLATFORM_ZOOM && $meeting->streamid
                 && $DB->get_manager()->table_exists('stream')) {
             // Find mod_stream instances with collection_mode=true in the specified course
             $streaminstances = $DB->get_records('stream', [
@@ -2350,13 +2362,15 @@ class local_stream_help {
                 'format' => true,
         ];
 
-        // For Zoom platform, check if this is the first mod_stream in the course and setting is enabled
-        if ($this->config->platform == $this::PLATFORM_ZOOM && $this->config->defaultcollectionmode
-                && $DB->get_manager()->table_exists('stream')) {
-            $existingstreams = $DB->count_records('stream', ['course' => $meeting->course]);
-            if ($existingstreams == 0) {
-                // This is the first mod_stream in the course, set collection_mode = 1
+        // Collection mode: site default only for the first activity, or always when the CLI asks for a playlist.
+        if ($this->config->platform == $this::PLATFORM_ZOOM && $DB->get_manager()->table_exists('stream')) {
+            if ($this->zoomembedcollection === true) {
                 $moduledata->collection_mode = 1;
+            } else if ($this->zoomembedcollection === null && !empty($this->config->defaultcollectionmode)) {
+                $existingstreams = $DB->count_records('stream', ['course' => $meeting->course]);
+                if ($existingstreams == 0) {
+                    $moduledata->collection_mode = 1;
+                }
             }
         }
 
