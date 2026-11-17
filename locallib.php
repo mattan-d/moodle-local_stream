@@ -63,6 +63,13 @@ class local_stream_help {
     private $teamsgraphuseserversidefilter = true;
 
     /**
+     * Scopes Zoom reported as missing during the latest API call.
+     *
+     * @var string[]
+     */
+    private $zoomscopemissing = [];
+
+    /**
      * Constant representing the Zoom platform.
      */
     public const PLATFORM_ZOOM = 0;
@@ -260,6 +267,7 @@ class local_stream_help {
         $groups = [
             ['user:read:admin', 'user:read:list_users:admin'],
             ['recording:read:admin', 'cloud_recording:read:list_user_recordings:admin'],
+            ['dashboard_meetings:read:admin', 'dashboard:read:list_meetings:admin', 'dashboard:read:admin'],
         ];
         $missing = [];
         foreach ($groups as $options) {
@@ -269,6 +277,39 @@ class local_stream_help {
             $missing[] = $granular ? $options[1] : $options[0];
         }
         return $missing;
+    }
+
+    /**
+     * Scope names named in a Zoom API error, such as "does not contain scopes:[...]".
+     *
+     * @param string $message Zoom error message.
+     * @return string[]
+     */
+    public static function scopes_from_zoom_message(string $message): array {
+        if (!preg_match('/scopes?\s*:\s*\[([^\]]+)\]/i', $message, $matches)) {
+            return [];
+        }
+        $scopes = preg_split('/\s*,\s*/', $matches[1]);
+        $scopes = array_map('trim', $scopes ?: []);
+        return array_values(array_filter($scopes));
+    }
+
+    /**
+     * Remember a missing-scope error from a Zoom response.
+     *
+     * @param mixed $response Decoded Zoom response.
+     * @return bool True when the response is a scope error.
+     */
+    private function remember_zoom_scope_error($response): bool {
+        if (!is_object($response) || empty($response->message)) {
+            return false;
+        }
+        $missing = self::scopes_from_zoom_message((string) $response->message);
+        if (!$missing) {
+            return false;
+        }
+        $this->zoomscopemissing = array_values(array_unique(array_merge($this->zoomscopemissing, $missing)));
+        return true;
     }
 
     /**
@@ -1223,6 +1264,9 @@ class local_stream_help {
         }
 
         $object = $this->call_zoom_api($url);
+        if ($this->remember_zoom_scope_error($object)) {
+            return null;
+        }
 
         // Merge the current page of meetings into the accumulated list.
         if (isset($object->meetings)) {
@@ -1341,9 +1385,14 @@ class local_stream_help {
     public function listing_zoom($data) {
         global $DB;
 
+        $this->zoomscopemissing = [];
         $meetings = $this->fetch_meetings($data);
         if (!$meetings) {
-            mtrace('Task: No Zoom meetings were found.');
+            if ($this->zoomscopemissing) {
+                mtrace(get_string('zoommissingscopes', 'local_stream', implode(', ', $this->zoomscopemissing)));
+            } else {
+                mtrace('Task: No Zoom meetings were found.');
+            }
             return;
         }
 
