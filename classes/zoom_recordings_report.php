@@ -93,23 +93,40 @@ class zoom_recordings_report {
 
         $totalusers = count($users);
         $index = 0;
+        $failed = [];
         foreach ($users as $user) {
             $index++;
             $email = (string) ($user->email ?? $user->id);
             mtrace('בודק משתמש ' . $index . '/' . $totalusers . ': ' . $email);
             $byuser[$email] = ['meetings' => 0, 'files' => 0, 'mp4' => 0, 'bytes' => 0];
-            foreach ($ranges as $range) {
-                $pages = $this->list_user_recordings((string) $user->id, $range[0], $range[1], false);
-                if ($this->includetrash) {
-                    $pages = array_merge($pages, $this->list_user_recordings((string) $user->id, $range[0], $range[1], true));
+            try {
+                $pages = [];
+                foreach ($ranges as $range) {
+                    $pages = array_merge(
+                            $pages,
+                            $this->list_user_recordings((string) $user->id, $range[0], $range[1], false)
+                    );
+                    if ($this->includetrash) {
+                        $pages = array_merge(
+                                $pages,
+                                $this->list_user_recordings((string) $user->id, $range[0], $range[1], true)
+                        );
+                    }
                 }
-                foreach ($pages as $meeting) {
+            } catch (\moodle_exception $e) {
+                $detail = $e->debuginfo !== null && $e->debuginfo !== '' ? $e->debuginfo : $e->getMessage();
+                mtrace('דילוג על ' . $email . ': ' . $detail);
+                $failed[] = $email;
+                unset($byuser[$email]);
+                continue;
+            }
+            foreach ($pages as $meeting) {
                     $uuid = (string) ($meeting->uuid ?? '');
                     if ($uuid === '' || isset($meetings[$uuid])) {
                         continue;
                     }
                     $meetings[$uuid] = true;
-                    $month = substr((string) ($meeting->start_time ?? $range[0]), 0, 7);
+                    $month = substr((string) ($meeting->start_time ?? $this->from), 0, 7);
                     if (!isset($bymonth[$month])) {
                         $bymonth[$month] = ['meetings' => 0, 'files' => 0, 'mp4' => 0, 'bytes' => 0];
                     }
@@ -134,11 +151,13 @@ class zoom_recordings_report {
                             $byuser[$email]['mp4']++;
                         }
                     }
-                }
             }
             if ($byuser[$email]['meetings'] === 0) {
                 unset($byuser[$email]);
             }
+        }
+        if ($failed) {
+            mtrace('משתמשים שלא נבדקו: ' . count($failed));
         }
 
         ksort($bymonth);
@@ -249,9 +268,8 @@ class zoom_recordings_report {
      * @return \stdClass
      */
     private function get_json(string $url): \stdClass {
-        $attempts = 0;
-        while ($attempts < 4) {
-            $attempts++;
+        $lastcode = 0;
+        for ($attempt = 1; $attempt <= 6; $attempt++) {
             $curl = new \curl();
             $curl->setHeader([
                     'authorization: Bearer ' . $this->token,
@@ -260,8 +278,14 @@ class zoom_recordings_report {
             $body = $curl->get($url, [], ['RETURNTRANSFER' => true, 'CURLOPT_TIMEOUT' => 60]);
             $info = $curl->get_info();
             $code = (int) ($info['http_code'] ?? 0);
-            if ($code === 429) {
-                sleep(2 * $attempts);
+            if ($code === 401 && $attempt === 1) {
+                $this->token = $this->fetch_token();
+                continue;
+            }
+            if (in_array($code, [0, 429, 500, 502, 503, 504], true)) {
+                $lastcode = $code === 0 ? 502 : $code;
+                mtrace('Zoom HTTP ' . $lastcode . ', ניסיון ' . $attempt . '/6');
+                sleep(min(30, 2 * $attempt));
                 continue;
             }
             $response = json_decode($body);
@@ -271,7 +295,7 @@ class zoom_recordings_report {
             }
             return $response;
         }
-        throw new \moodle_exception('generalexceptionmessage', 'error', '', 'HTTP 429');
+        throw new \moodle_exception('generalexceptionmessage', 'error', '', 'HTTP ' . $lastcode);
     }
 
     /**
