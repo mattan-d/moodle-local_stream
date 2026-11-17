@@ -26,6 +26,7 @@ define('CLI_SCRIPT', true);
 
 require(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/clilib.php');
+require_once($CFG->libdir . '/filelib.php');
 require_once($CFG->dirroot . '/local/stream/classes/zoom_recordings_report.php');
 
 $defaultto = date('Y-m-d');
