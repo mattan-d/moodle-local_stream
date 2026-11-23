@@ -282,9 +282,15 @@ function local_stream_inplace_editable($itemtype, $itemid, $newvalue) {
  * @param context $context The context object for the course.
  */
 function local_stream_extend_navigation_course($navigation, $course, $context) {
+    global $CFG;
 
     $label = get_string('streamdashboard', 'local_stream');
-    $icon = new pix_icon('icon', $label, 'local_stream');
+    // Same artwork as the activity chooser (mod_stream monologo), not the legacy icon.png.
+    if (is_readable($CFG->dirroot . '/mod/stream/pix/monologo.svg')) {
+        $icon = new pix_icon('monologo', $label, 'mod_stream');
+    } else {
+        $icon = new pix_icon('icon', $label, 'local_stream');
+    }
 
     $label = get_string('coursedashboard', 'local_stream');
     if (isset($context->id) && $context->id) {
