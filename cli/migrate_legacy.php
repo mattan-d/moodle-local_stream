@@ -122,5 +122,6 @@ cli_writeln('Inserted: ' . $stats['inserted']);
 cli_writeln('Updated: ' . $stats['updated']);
 cli_writeln('Skipped (already exists): ' . $stats['skipped']);
 cli_writeln('Invalid (empty recordingid): ' . $stats['invalid']);
+cli_writeln('Failed: ' . $stats['failed']);
 cli_writeln($dryrun ? 'Dry run finished.' : 'Migration finished.');
 exit(0);

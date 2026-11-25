@@ -141,6 +141,12 @@ if (!$cleared) {
     cli_writeln('No upgrade lock was set.');
 }
 
+require_once($CFG->dirroot . '/local/stream/locallib.php');
+if (!$pending && local_stream_help::restore_plugin_version_if_code_matches()) {
+    core_plugin_manager::reset_caches();
+    cli_writeln('Restored local_stream version from version.php. Settings can load again.');
+}
+
 if (!empty($options['skip-upgrade'])) {
     fix_stuck_upgrade_maintenance($options, $maintenanceon, $maintenancefile);
     cli_writeln('Skipped the upgrade.');

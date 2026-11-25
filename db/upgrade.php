@@ -79,11 +79,17 @@ function xmldb_local_stream_upgrade($oldversion) {
 
     if ($oldversion < 2026051700) {
         require_once($CFG->dirroot . '/local/stream/locallib.php');
-        $help = new local_stream_help();
-        $help->migrate_legacy_zoom_integration([
-                'migrateconfig' => true,
-                'migraterecords' => $help->legacy_zoom_rec_table_exists(),
-        ]);
+        try {
+            $help = new local_stream_help();
+            $help->migrate_legacy_zoom_integration([
+                    'migrateconfig' => true,
+                    'migraterecords' => $help->legacy_zoom_rec_table_exists(),
+            ]);
+        } catch (\Throwable $e) {
+            // A failed copy must not leave the plugin version behind, or the settings
+            // page is missing and admin/settings.php throws sectionerror.
+            mtrace('local_stream legacy migration failed: ' . $e->getMessage());
+        }
         upgrade_plugin_savepoint(true, 2026051700, 'local', 'stream');
     }
 

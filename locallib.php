@@ -51,7 +51,7 @@ class local_stream_help {
     private $embedconfigbaseline = null;
 
     /**
-     * @var cache Cache object for the streamdata
+     * @var cache|null Cache object for the streamdata. Null until first use.
      */
     public $cache;
 
@@ -222,7 +222,21 @@ class local_stream_help {
         $config = get_config('local_stream');
         $this->config = is_object($config) ? clone $config : new stdClass();
         self::apply_mod_zoom_credentials($this->config);
-        $this->cache = cache::make('local_stream', 'streamdata');
+        // Cache is created on first use. Building it here breaks upgrades when the
+        // definition is not registered yet, and the legacy migration only needs config.
+        $this->cache = null;
+    }
+
+    /**
+     * Stream data cache, created on first use.
+     *
+     * @return cache_application
+     */
+    private function streamcache() {
+        if (!$this->cache) {
+            $this->cache = cache::make('local_stream', 'streamdata');
+        }
+        return $this->cache;
     }
 
     /**
@@ -2595,7 +2609,7 @@ class local_stream_help {
     public function get_users() {
         global $DB;
 
-        $cache = $this->cache->get('users');
+        $cache = $this->streamcache()->get('users');
         if ($cache) {
             $options = json_decode($cache);
             $options = (array) $options;
@@ -2614,7 +2628,7 @@ class local_stream_help {
                 }
             }
 
-            $this->cache->set('users', json_encode($options));
+            $this->streamcache()->set('users', json_encode($options));
         }
 
         return $options;
@@ -2710,23 +2724,23 @@ class local_stream_help {
 
         // Attempt to get the courses from cache.
         if (is_siteadmin()) {
-            $cache = $this->cache->get('admin_courses');
+            $cache = $this->streamcache()->get('admin_courses');
             if ($cache) {
                 $courses = $cache;
             } else {
                 $courses = get_courses();
                 // Cache the fetched courses for admin.
-                $this->cache->set('admin_courses', $courses);
+                $this->streamcache()->set('admin_courses', $courses);
             }
         } else {
-            $cache = $this->cache->get('user_courses_' . $USER->id);
+            $cache = $this->streamcache()->get('user_courses_' . $USER->id);
             if ($cache) {
                 $courses = $cache;
             } else {
                 $courses = enrol_get_my_courses();
 
                 // Cache the fetched courses for the user.
-                $this->cache->set('user_courses_' . $USER->id, $courses);
+                $this->streamcache()->set('user_courses_' . $USER->id, $courses);
             }
         }
 
@@ -4091,7 +4105,7 @@ class local_stream_help {
      *     @type int|null $limit Max legacy rows to process (default null = all).
      *     @type callable|null $log function(string $msg): void
      * }
-     * @return array{config_keys: int, inserted: int, updated: int, skipped: int, invalid: int}
+     * @return array{config_keys: int, inserted: int, updated: int, skipped: int, invalid: int, failed: int}
      */
     public function migrate_legacy_zoom_integration(array $options = []): array {
         global $DB;
@@ -4111,6 +4125,7 @@ class local_stream_help {
                 'updated' => 0,
                 'skipped' => 0,
                 'invalid' => 0,
+                'failed' => 0,
         ];
 
         if ($migrateconfig) {
@@ -4118,6 +4133,12 @@ class local_stream_help {
             if ($configs) {
                 $configs = (array) $configs;
                 foreach ($configs as $key => $value) {
+                    // version/release belong to the old plugin. Copying them makes Moodle
+                    // treat local_stream as not upgraded and settings.php is never loaded.
+                    if (self::is_reserved_plugin_config_key((string) $key)) {
+                        $log('Skip reserved config: ' . $key);
+                        continue;
+                    }
                     $stats['config_keys']++;
                     if (!$dryrun) {
                         set_config($key, $value, 'local_stream');
@@ -4126,6 +4147,9 @@ class local_stream_help {
                 }
             } else {
                 $log('No legacy plugin config (' . self::LEGACY_ZOOM_PLUGIN . ').');
+            }
+            if (!$dryrun && self::restore_plugin_version_if_code_matches()) {
+                $log('Restored local_stream version from version.php.');
             }
         }
 
@@ -4153,26 +4177,45 @@ class local_stream_help {
                 continue;
             }
 
-            $existing = $DB->get_record('local_stream_rec', ['recordingid' => $prepared->recordingid]);
+            $record = $this->migrate_legacy_record_for_table($prepared);
+            if (empty($record->recordingid)) {
+                $stats['invalid']++;
+                $log('Skip legacy id ' . $legacy->id . ': recordingid is not a column on local_stream_rec.');
+                continue;
+            }
+
+            try {
+                $existing = $DB->get_record('local_stream_rec', ['recordingid' => $record->recordingid]);
+            } catch (\Throwable $e) {
+                $stats['failed']++;
+                $log('Failed lookup for recordingid ' . $record->recordingid . ': ' . $e->getMessage());
+                continue;
+            }
             if ($existing) {
                 if (!$updateexisting) {
                     $stats['skipped']++;
-                    $log('Skip (exists): recordingid ' . $prepared->recordingid);
+                    $log('Skip (exists): recordingid ' . $record->recordingid);
                     continue;
                 }
-                $prepared->id = $existing->id;
+                $record->id = $existing->id;
                 if (property_exists($existing, 'embedded_at')) {
-                    $prepared->embedded_at = $existing->embedded_at;
+                    $record->embedded_at = $existing->embedded_at;
                 }
                 if (property_exists($existing, 'zoom_cloud_deleted')) {
-                    $prepared->zoom_cloud_deleted = $existing->zoom_cloud_deleted;
+                    $record->zoom_cloud_deleted = $existing->zoom_cloud_deleted;
                 }
                 if ($dryrun) {
                     $stats['updated']++;
                     $log('[dry-run] Would update local_stream_rec id ' . $existing->id . ' <= legacy id ' . $legacy->id);
                     continue;
                 }
-                $DB->update_record('local_stream_rec', $prepared);
+                try {
+                    $DB->update_record('local_stream_rec', $record);
+                } catch (\Throwable $e) {
+                    $stats['failed']++;
+                    $log('Failed update local_stream_rec id ' . $existing->id . ': ' . $e->getMessage());
+                    continue;
+                }
                 $stats['updated']++;
                 $log('Updated local_stream_rec id ' . $existing->id . ' <= legacy id ' . $legacy->id);
                 continue;
@@ -4180,15 +4223,110 @@ class local_stream_help {
 
             if ($dryrun) {
                 $stats['inserted']++;
-                $log('[dry-run] Would insert recordingid ' . $prepared->recordingid . ' (legacy id ' . $legacy->id . ')');
+                $log('[dry-run] Would insert recordingid ' . $record->recordingid . ' (legacy id ' . $legacy->id . ')');
                 continue;
             }
 
-            $DB->insert_record('local_stream_rec', $prepared);
+            try {
+                $DB->insert_record('local_stream_rec', $record);
+            } catch (\Throwable $e) {
+                $stats['failed']++;
+                $log('Failed insert recordingid ' . $record->recordingid . ': ' . $e->getMessage());
+                continue;
+            }
             $stats['inserted']++;
-            $log('Inserted recordingid ' . $prepared->recordingid . ' (legacy id ' . $legacy->id . ')');
+            $log('Inserted recordingid ' . $record->recordingid . ' (legacy id ' . $legacy->id . ')');
         }
 
         return $stats;
+    }
+
+    /**
+     * Plugin config keys that must never be copied from another plugin.
+     *
+     * @param string $key
+     * @return bool
+     */
+    public static function is_reserved_plugin_config_key(string $key): bool {
+        return in_array($key, ['version', 'release', 'installrunning'], true);
+    }
+
+    /**
+     * Put the local_stream version row back to version.php.
+     *
+     * Used when a legacy migration overwrote it. Only when Moodle is not waiting
+     * for a real upgrade, so a pending schema upgrade is not skipped.
+     *
+     * @return bool True when the stored version was changed.
+     */
+    public static function restore_plugin_version_if_code_matches(): bool {
+        global $CFG;
+
+        if (moodle_needs_upgrading(false)) {
+            return false;
+        }
+
+        $plugin = new \stdClass();
+        require($CFG->dirroot . '/local/stream/version.php');
+        $disk = (string) $plugin->version;
+        $db = get_config('local_stream', 'version');
+        if ($db === false || (string) $db === $disk) {
+            return false;
+        }
+
+        set_config('version', $disk, 'local_stream');
+        return true;
+    }
+
+    /**
+     * Keep only columns that exist, and fill nulls that the table rejects.
+     *
+     * @param \stdClass $prepared
+     * @return \stdClass
+     */
+    public function migrate_legacy_record_for_table(\stdClass $prepared): \stdClass {
+        global $DB;
+
+        $columns = $DB->get_columns('local_stream_rec');
+        $record = new \stdClass();
+        foreach ($prepared as $field => $value) {
+            if (!isset($columns[$field])) {
+                continue;
+            }
+            $record->$field = $this->migrate_legacy_column_value($columns[$field], $value);
+        }
+        foreach ($columns as $name => $column) {
+            if ($name === 'id' || property_exists($record, $name)) {
+                continue;
+            }
+            if (!empty($column->not_null) && empty($column->has_default)) {
+                $record->$name = $this->migrate_legacy_column_value($column, null);
+            }
+        }
+        return $record;
+    }
+
+    /**
+     * Coerce a legacy value into something the column accepts.
+     *
+     * @param \database_column_info $column
+     * @param mixed $value
+     * @return mixed
+     */
+    private function migrate_legacy_column_value(\database_column_info $column, $value) {
+        $numeric = $column->meta_type === 'I' || $column->meta_type === 'N';
+        if ($value === null || $value === '') {
+            if ($numeric) {
+                return 0;
+            }
+            if (!empty($column->not_null)) {
+                return '';
+            }
+            return null;
+        }
+        if ($numeric && !is_numeric($value)) {
+            return 0;
+        }
+        return $value;
     }
 }
